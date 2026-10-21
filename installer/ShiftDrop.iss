@@ -18,7 +18,6 @@ AppComments=Drag a file, press Shift, drop it on a format.
 VersionInfoVersion={#AppVersion}
 ; per-user install: no admin prompt
 PrivilegesRequired=lowest
-PrivilegesRequiredOverridesAllowed=dialog
 DefaultDirName={localappdata}\Programs\{#AppName}
 DisableDirPage=auto
 DisableProgramGroupPage=yes
@@ -46,7 +45,6 @@ Name: "sendto"; Description: "Add ShiftDrop to the right-click ""Send to"" menu"
 
 [Files]
 Source: "..\build\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "Uninstall-ShiftDrop.ps1"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{userprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; Comment: "Drag a file, press Shift"
