@@ -20,6 +20,9 @@ public sealed record Theme(
         Card: 0xF51A202B, CardLine: 0x22FFFFFF, CardText: 0xFFF1F5F9, CardSub: 0xFF94A3B8, Track: 0xFF334155,
         Danger: 0xFFF87171, Success: 0xFF4ADE80);
 
+    /// <summary>"system", "light" or "dark", from the settings.</summary>
+    public static string Override { get; set; } = "system";
+
     static Theme _cached = Light;
     static long _readAt = -100_000;
 
@@ -28,6 +31,8 @@ public sealed record Theme(
     {
         get
         {
+            if (Override == "light") return Light;
+            if (Override == "dark") return Dark;
             if (Environment.TickCount64 - _readAt < 3000) return _cached;
             _readAt = Environment.TickCount64;
             _cached = Light;

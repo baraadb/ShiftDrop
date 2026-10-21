@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using ShiftDrop.Core;
-using ShiftDrop.Core.Engines;
 using ShiftDrop.Native;
 
 namespace ShiftDrop.UI;
@@ -15,6 +14,8 @@ public sealed class Hud : LayeredWindow
     {
         public Job? Job;
         public string Title = "", Body = "";
+        public Action? Action;
+        public string? ActionText;
         public bool Error;
         public DateTime? Until;
         public RectF CloseBox, LinkBox, Bounds;
@@ -41,10 +42,10 @@ public sealed class Hud : LayeredWindow
         Refresh(force: true);
     }
 
-    public void Info(string title, string body, bool error = false, double seconds = 8)
+    public void Info(string title, string body, bool error = false, double seconds = 8, Action? action = null, string? actionText = null)
     {
         _anchor = W.Cursor();
-        _cards.Add(new Card { Title = title, Body = body, Error = error, Until = DateTime.Now.AddSeconds(seconds) });
+        _cards.Add(new Card { Title = title, Body = body, Error = error, Until = DateTime.Now.AddSeconds(seconds), Action = action, ActionText = actionText });
         Refresh(force: true);
     }
 
@@ -111,7 +112,7 @@ public sealed class Hud : LayeredWindow
     }
 
     static float Height(Card c) =>
-        c.Job == null ? 92 : c.Job.State == JobState.Failed ? 96 : 76;
+        c.Job == null ? (c.Action != null ? 104 : 92) : c.Job.State == JobState.Failed ? 96 : 76;
 
     void DrawCard(Card card, float x0, float y0, float hgt, bool rtl)
     {
@@ -134,14 +135,23 @@ public sealed class Hud : LayeredWindow
         var job = card.Job;
         if (job == null)
         {
-            c.Text(card.Title, textX, y + 12 * s, textW, 20 * s, 13.5f * s, card.Error ? th.Danger : th.CardText, bold: true, align: align, rtl: Dir(card.Title));
-            c.Text(card.Body, x + inner, y + 34 * s, w - inner * 2, h - 42 * s, 12 * s, th.CardSub, align: align, valign: Align.Near, wrap: true, rtl: Dir(card.Body));
+            c.Text(card.Title, textX, y + 12 * s, textW, 20 * s, 13.5f * s, card.Error ? th.Danger : th.CardText, bold: true, align: align);
             card.LinkBox = default;
+            if (card.Action != null && card.ActionText != null)
+            {
+                c.Text(card.Body, x + inner, y + 34 * s, w - inner * 2, 30 * s, 12 * s, th.CardSub, align: align, valign: Align.Near, wrap: true);
+                float tw = Math.Min(w - inner * 2, c.MeasureWidth(card.ActionText, 12.5f * s, true) + 4 * s);
+                float lx = rtl ? x + w - inner - tw : x + inner;
+                card.LinkBox = new RectF(lx, y + h - 26 * s, tw, 20 * s);
+                c.Text(card.ActionText, lx, y + h - 26 * s, tw, 20 * s, 12.5f * s, th.Accent, bold: true, align: align);
+            }
+            else
+                c.Text(card.Body, x + inner, y + 34 * s, w - inner * 2, h - 42 * s, 12 * s, th.CardSub, align: align, valign: Align.Near, wrap: true);
             return;
         }
 
         c.Text(job.Title, textX, y + 12 * s, textW, 20 * s, 13.5f * s, th.CardText, bold: true, align: align);
-        c.Text(job.Subtitle, textX, y + 33 * s, textW, 18 * s, 12 * s, th.CardSub, align: align, rtl: Dir(job.Subtitle));
+        c.Text(job.Subtitle, textX, y + 33 * s, textW, 18 * s, 12 * s, th.CardSub, align: align, rtl: Core.Engines.Documents.IsRtl(job.Subtitle));
         float barY = y + 58 * s, barX = x + inner, barW = w - inner * 2;
         card.LinkBox = default;
         switch (job.State)
@@ -171,14 +181,10 @@ public sealed class Hud : LayeredWindow
                 c.Text(L.T("Cancelled", "أُلغي"), barX, barY - 8 * s, barW, 20 * s, 12.5f * s, th.CardSub, align: align);
                 break;
             case JobState.Failed:
-                var err = job.Error ?? L.T("Failed", "فشل");
-                c.Text(err, barX, barY - 6 * s, barW, 36 * s, 12 * s, th.Danger, align: align, valign: Align.Near, wrap: true, rtl: Dir(err));
+                c.Text(job.Error ?? L.T("Failed", "فشل"), barX, barY - 6 * s, barW, 36 * s, 12 * s, th.Danger, align: align, valign: Align.Near, wrap: true);
                 break;
         }
     }
-
-    /// <summary>Arabic text runs right to left; paths, file names and engine errors keep left to right.</summary>
-    static bool Dir(string text) => Documents.IsRtl(text);
 
     // ---------------- input ----------------
 
@@ -212,6 +218,12 @@ public sealed class Hud : LayeredWindow
                 {
                     if (card.Job is { Finished: false } job) job.Cancel();
                     else _cards.Remove(card);
+                }
+                else if (In(card.LinkBox, x, y) && card.Action != null)
+                {
+                    var act = card.Action;
+                    _cards.Remove(card);
+                    App.Post(act);
                 }
                 else if (In(card.LinkBox, x, y) && card.Job is { Outputs.Count: > 0 } done)
                 {

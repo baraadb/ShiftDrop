@@ -175,6 +175,7 @@ public static unsafe partial class W
     [LibraryImport("user32.dll")] public static partial int GetWindowTextLengthW(IntPtr hwnd);
     [LibraryImport("user32.dll")] public static partial int GetWindowTextW(IntPtr hwnd, char* buffer, int max);
     [LibraryImport("user32.dll")] public static partial IntPtr SetFocus(IntPtr hwnd);
+    [LibraryImport("user32.dll")] public static partial int EnableWindow(IntPtr hwnd, int enable);
     [LibraryImport("user32.dll")] public static partial IntPtr LoadCursorW(IntPtr instance, IntPtr id);
     [LibraryImport("user32.dll")] public static partial IntPtr SetCursor(IntPtr cursor);
     [LibraryImport("user32.dll")] public static partial nint GetWindowLongPtrW(IntPtr hwnd, int index);

@@ -1,6 +1,6 @@
 ﻿# Makes build\ShiftDrop-Setup-<version>.exe: one file to give to anyone. No .NET needed on their PC.
-# Builds the app first (and fetches FFmpeg + PDFium) unless build\publish is already complete.
-param([switch]$Rebuild)
+# Always rebuilds the app first (FFmpeg and PDFium come from the download cache), so the installer has the latest code.
+param([switch]$SkipBuild)
 
 $ErrorActionPreference = 'Continue'
 $ProgressPreference = 'SilentlyContinue'
@@ -11,7 +11,7 @@ function Say($t) { Write-Host ''; Write-Host "==> $t" -ForegroundColor Cyan }
 function Fail($t) { Write-Host ''; Write-Host "XX  $t" -ForegroundColor Red; Read-Host 'Press Enter to close'; exit 1 }
 
 $ready = (Test-Path (Join-Path $Publish 'ShiftDrop.exe')) -and (Test-Path (Join-Path $Publish 'tools\ffmpeg.exe')) -and (Test-Path (Join-Path $Publish 'tools\pdfium.dll'))
-if ($Rebuild -or -not $ready) {
+if (-not $SkipBuild -or -not $ready) {
     Say 'Building ShiftDrop and fetching FFmpeg + PDFium...'
     & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Install-ShiftDrop.ps1') -NoInstall -NoLaunch
     if (-not (Test-Path (Join-Path $Publish 'ShiftDrop.exe'))) { Fail 'The build did not finish. See build\install.log.' }

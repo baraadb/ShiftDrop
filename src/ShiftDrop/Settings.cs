@@ -9,17 +9,53 @@ public sealed class Settings
 {
     /// <summary>"auto", "ar" or "en".</summary>
     public string Language { get; set; } = "auto";
-    /// <summary>"beside" (next to the original) or "downloads".</summary>
+    /// <summary>"beside" (next to the original), "downloads" or "custom" (<see cref="CustomFolder"/>).</summary>
     public string SaveTo { get; set; } = "beside";
+    public string CustomFolder { get; set; } = "";
     /// <summary>Show the wheel for drags from any app, not only File Explorer and the desktop.</summary>
     public bool AllApps { get; set; }
     public bool Paused { get; set; }
     public bool Welcomed { get; set; }
     public List<string> Hidden { get; set; } = [];
 
+    /// <summary>"system", "light" or "dark".</summary>
+    public string Theme { get; set; } = "system";
+    /// <summary>Key that opens the wheel during a drag: "shift", "ctrl" or "alt". The other two switch wheels.</summary>
+    public string OpenKey { get; set; } = "shift";
+    /// <summary>"small", "medium" or "large".</summary>
+    public string WheelSize { get; set; } = "medium";
+    public bool ShowHints { get; set; } = true;
+    public bool ShowCards { get; set; } = true;
+    public bool RevealWhenDone { get; set; }
+    public bool AutoUpdate { get; set; } = true;
+    public DateTime LastUpdateCheck { get; set; }
+    public string SkippedVersion { get; set; } = "";
+
+    [JsonIgnore]
+    public float WheelScale => WheelSize switch { "small" => 0.85f, "large" => 1.18f, _ => 1f };
+
+    static readonly string[] KeyOrder = ["shift", "ctrl", "alt"];
+
+    /// <summary>Virtual keys and names for opening the wheel, then switching to tools and to actions.</summary>
+    [JsonIgnore]
+    public (int Vk, string Name) OpenKeyInfo => KeyInfo(OpenKeyName);
+    [JsonIgnore]
+    public (int Vk, string Name) ToolsKeyInfo => KeyInfo(KeyOrder.Where(k => k != OpenKeyName).First());
+    [JsonIgnore]
+    public (int Vk, string Name) ActionsKeyInfo => KeyInfo(KeyOrder.Where(k => k != OpenKeyName).Last());
+    string OpenKeyName => KeyOrder.Contains(OpenKey) ? OpenKey : "shift";
+
+    static (int, string) KeyInfo(string k) => k switch
+    {
+        "ctrl" => (0x11, "Ctrl"),
+        "alt" => (0x12, "Alt"),
+        _ => (0x10, "Shift"),
+    };
+
     [JsonIgnore] public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ShiftDrop");
     [JsonIgnore] static string FilePath => Path.Combine(Folder, "settings.json");
 
+    [JsonIgnore]
     public bool Arabic => Language switch
     {
         "ar" => true,

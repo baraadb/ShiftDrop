@@ -12,7 +12,7 @@ namespace ShiftDrop;
 /// The tray app: a hidden window that receives the mouse-hook messages, decides when a drag
 /// deserves the wheel, owns the tray icon, and starts jobs.
 /// </summary>
-public sealed unsafe class App : Window
+public sealed partial class App : Window
 {
     public const string MainClass = "ShiftDrop.Main";
     const uint WM_INVOKE = W.WM_APP + 1, WM_TRAY = W.WM_APP + 2;
@@ -22,7 +22,7 @@ public sealed unsafe class App : Window
     static App? _instance;
     static readonly ConcurrentQueue<Action> Pending = new();
 
-    public Settings Settings { get; }
+    public Settings Settings { get; private set; }
     public Services Services { get; }
     public JobQueue Queue { get; }
     public Wheel Wheel { get; private set; } = null!;
@@ -47,12 +47,15 @@ public sealed unsafe class App : Window
         Services = services;
         Queue = new JobQueue(services)
         {
-            DestinationFor = input => Settings.SaveTo == "downloads"
-                ? Downloads()
-                : Path.GetDirectoryName(Path.GetFullPath(input.TrimEnd('\\', '/'))) ?? Downloads(),
+            DestinationFor = input => Settings.SaveTo switch
+            {
+                "downloads" => Downloads(),
+                "custom" when Directory.Exists(Settings.CustomFolder) => Settings.CustomFolder,
+                _ => Path.GetDirectoryName(Path.GetFullPath(input.TrimEnd('\\', '/'))) ?? Downloads(),
+            },
             Fallback = Downloads,
         };
-        Queue.Changed += job => Post(() => Hud.Update(job));
+        Queue.Changed += job => Post(() => OnJobChanged(job));
         _taskbarCreated = W.RegisterWindowMessageW("TaskbarCreated");
         Create(MainClass, W.WS_EX_TOOLWINDOW, W.WS_POPUP, "ShiftDrop");
     }
@@ -67,6 +70,7 @@ public sealed unsafe class App : Window
         Log.Write($"start {typeof(App).Assembly.GetName().Version} in {appDir}");
         var settings = Settings.Load();
         L.Arabic = settings.Arabic;
+        Theme.Override = settings.Theme;
 
         Gdip.Start();
         W.OleInitialize(IntPtr.Zero);
@@ -87,6 +91,10 @@ public sealed unsafe class App : Window
             ItemsFor = (files, group) => Catalog.For(files, group, services, app.Settings.Hidden.ToHashSet()),
             Execute = app.Execute,
             Done = () => app._suppress = true,
+            SizeFactor = () => app.Settings.WheelScale,
+            Hints = () => app.Settings.ShowHints
+                ? (app.Settings.OpenKeyInfo.Name, app.Settings.ToolsKeyInfo.Name, app.Settings.ActionsKeyInfo.Name)
+                : null,
         };
         AppActions.Register(app);
         app.AddTrayIcon();
@@ -99,12 +107,17 @@ public sealed unsafe class App : Window
             bool pdf = Pdfium.Available;
             Post(() => app.StartupNotes(pdf));
             if (services.FFmpeg.Available) { Thread.Sleep(3000); Log.Write("h264 encoder: " + services.FFmpeg.H264); }
+            // daily update check, a little after start-up so it never slows the login
+            Thread.Sleep(20000);
+            if (app.Settings.AutoUpdate && Updater.Configured && DateTime.Now - app.Settings.LastUpdateCheck > TimeSpan.FromHours(20))
+                Post(async () => await app.CheckForUpdatesAsync(manual: false));
         });
 
         if (startFiles.Count > 0) Post(() => app.Wheel.ShowForFiles(W.Cursor(), startFiles));
 
         while (W.GetMessageW(out var msg, IntPtr.Zero, 0, 0) > 0)
         {
+            if (SettingsWindow.Route(ref msg)) continue;
             W.TranslateMessage(ref msg);
             W.DispatchMessageW(ref msg);
         }
@@ -120,11 +133,11 @@ public sealed unsafe class App : Window
     void StartupNotes(bool pdfium)
     {
         if (!Services.FFmpeg.Available)
-            Hud.Info(L.T("FFmpeg is missing", "برنامج FFmpeg غير موجود"),
+            Hud.Info(L.T("FFmpeg is missing", "FFmpeg غير موجود"),
                 L.T("Image, video and audio conversions are off. Reinstall ShiftDrop to bring them back.",
                     "تحويلات الصور والفيديو والصوت معطلة. أعد تثبيت ShiftDrop لإرجاعها."), error: true, seconds: 15);
         if (!pdfium)
-            Hud.Info(L.T("PDFium is missing", "مكتبة PDFium غير موجودة"),
+            Hud.Info(L.T("PDFium is missing", "PDFium غير موجود"),
                 L.T("PDF tools are off. Reinstall ShiftDrop to bring them back.", "أدوات PDF معطلة. أعد تثبيت ShiftDrop لإرجاعها."), error: true, seconds: 15);
         if (!Settings.Welcomed)
         {
@@ -134,8 +147,8 @@ public sealed unsafe class App : Window
         }
     }
 
-    void ShowTip(double seconds = 10) =>
-        Hud.Info(L.T("ShiftDrop is ready", "برنامج ShiftDrop جاهز"),
+    public void ShowTip(double seconds = 10) =>
+        Hud.Info(L.T("ShiftDrop is ready", "ShiftDrop جاهز"),
             L.T("Drag a file and press Shift, then drop it on a format. While the wheel is open: Ctrl for tools, Alt for actions.",
                 "اسحب ملفًا واضغط Shift، ثم أفلته على الصيغة. والعجلة مفتوحة: Ctrl للأدوات، Alt للإجراءات."),
             seconds: seconds);
@@ -155,14 +168,111 @@ public sealed unsafe class App : Window
                 if (options == null) return;
             }
             var job = Queue.Enqueue(op, files, options);
-            Hud.Track(job);
-            Hud.Update(job);
+            if (Settings.ShowCards) { Hud.Track(job); Hud.Update(job); }
+            else _quiet.Add(job);
         }
         catch (Exception e)
         {
             Log.Write($"execute {op.Id}: {e}");
             Hud.Info(op.Label, e.Message, error: true);
         }
+    }
+
+    readonly HashSet<Job> _quiet = [];
+
+    void OnJobChanged(Job job)
+    {
+        Hud.Update(job);
+        if (!job.Finished) return;
+        // without progress cards, still say when something went wrong
+        if (_quiet.Remove(job) && job.State == JobState.Failed)
+            Hud.Info(job.Title, job.Error ?? "", error: true, seconds: 15);
+        if (job.State == JobState.Done && Settings.RevealWhenDone && job.Outputs.Count > 0)
+            Hud.Reveal(job.Outputs[0]);
+    }
+
+    // ---------------- settings ----------------
+
+    /// <summary>Applies changed settings everywhere and saves them.</summary>
+    public void ApplySettings()
+    {
+        L.Arabic = Settings.Arabic;
+        Theme.Override = Settings.Theme;
+        Settings.Save();
+        UpdateTrayIcon();
+    }
+
+    public void ReplaceSettings(Settings fresh)
+    {
+        Settings = fresh;
+        ApplySettings();
+    }
+
+    public void ShowSettings() => SettingsWindow.Open(this);
+
+    public static void OpenLogFolder()
+    {
+        Directory.CreateDirectory(Log.Folder!);
+        Process.Start(new ProcessStartInfo("explorer.exe", $"\"{Log.Folder}\"") { UseShellExecute = false });
+    }
+
+    public static void OpenText(string path)
+    {
+        try { Process.Start(new ProcessStartInfo("notepad.exe", $"\"{path}\"") { UseShellExecute = false }); } catch { }
+    }
+
+    // ---------------- updates ----------------
+
+    bool _updating;
+
+    /// <summary>Checks GitHub; returns the update (if any) and a sentence for the settings window.</summary>
+    public async Task<(UpdateInfo? Info, string Message)> CheckForUpdatesAsync(bool manual)
+    {
+        try
+        {
+            var info = await Updater.CheckAsync();
+            Settings.LastUpdateCheck = DateTime.Now;
+            Settings.Save();
+            if (info == null)
+            {
+                var msg = L.T("You have the latest version", "لديك أحدث إصدار");
+                if (manual) Hud.Info(msg, $"ShiftDrop {AppInfo.VersionText}", seconds: 4);
+                return (null, msg);
+            }
+            var v = info.Version.ToString(3);
+            if (manual || Settings.SkippedVersion != v)
+                Hud.Info(L.T($"ShiftDrop {v} is available", $"الإصدار {v} من ShiftDrop متاح"),
+                    L.T("Install it now; ShiftDrop restarts by itself.", "ثبّته الآن، وسيعود ShiftDrop للعمل وحده."),
+                    seconds: 30, action: () => InstallUpdate(info, null), actionText: L.T("Install update", "تثبيت التحديث"));
+            return (info, L.T($"Version {v} is available", $"الإصدار {v} متاح"));
+        }
+        catch (Exception e)
+        {
+            Log.Write("update check: " + e.Message);
+            var msg = e is InvalidOperationException ? e.Message : L.T("Could not check for updates", "تعذّر البحث عن تحديثات");
+            if (manual) Hud.Info(L.T("Updates", "التحديثات"), msg, error: e is not InvalidOperationException, seconds: 8);
+            return (null, msg);
+        }
+    }
+
+    public async void InstallUpdate(UpdateInfo info, Action<string>? status)
+    {
+        if (_updating) return;
+        _updating = true;
+        try
+        {
+            status?.Invoke(L.T("Downloading…", "جارٍ التنزيل…"));
+            Hud.Info(L.T("Downloading the update…", "جارٍ تنزيل التحديث…"), $"ShiftDrop {info.Version.ToString(3)}", seconds: 60);
+            await Updater.InstallAsync(info, null);
+            if (info.SetupUrl != null) W.PostQuitMessage(0); // the installer restarts ShiftDrop
+        }
+        catch (Exception e)
+        {
+            Log.Write("update install: " + e);
+            status?.Invoke(L.T("The download failed", "فشل التنزيل"));
+            Hud.Info(L.T("Update failed", "فشل التحديث"), e.Message, error: true, seconds: 15);
+        }
+        finally { _updating = false; }
     }
 
     // ---------------- drag detection ----------------
@@ -180,7 +290,8 @@ public sealed unsafe class App : Window
     void Poll()
     {
         if (!W.PrimaryButtonDown()) { EndDrag(); return; }
-        bool shift = W.KeyDown(W.VK_SHIFT), ctrl = W.KeyDown(W.VK_CONTROL), alt = W.KeyDown(W.VK_MENU);
+        // "shift/ctrl/alt" here mean the open, tools and actions keys chosen in the settings
+        bool shift = W.KeyDown(Settings.OpenKeyInfo.Vk), ctrl = W.KeyDown(Settings.ToolsKeyInfo.Vk), alt = W.KeyDown(Settings.ActionsKeyInfo.Vk);
         if (!Wheel.Visible)
         {
             if (shift && !_suppress)
@@ -221,7 +332,7 @@ public sealed unsafe class App : Window
 
     // ---------------- window messages ----------------
 
-    protected override IntPtr Proc(uint msg, IntPtr w, IntPtr l)
+    protected override unsafe IntPtr Proc(uint msg, IntPtr w, IntPtr l)
     {
         switch (msg)
         {
@@ -266,7 +377,7 @@ public sealed unsafe class App : Window
             case WM_TRAY:
                 switch ((uint)l)
                 {
-                    case W.WM_LBUTTONUP: ShowTip(); break;
+                    case W.WM_LBUTTONUP: ShowSettings(); break;
                     case W.WM_RBUTTONUP: TrayMenu(); break;
                 }
                 return 0;
@@ -288,7 +399,7 @@ public sealed unsafe class App : Window
 
     // ---------------- tray ----------------
 
-    NOTIFYICONDATAW TrayData()
+    unsafe NOTIFYICONDATAW TrayData()
     {
         var d = new NOTIFYICONDATAW
         {
@@ -299,7 +410,7 @@ public sealed unsafe class App : Window
             CallbackMessage = WM_TRAY,
             Icon = _icon,
         };
-        var tip = Settings.Paused ? L.T("ShiftDrop (paused)", "برنامج ShiftDrop متوقف مؤقتًا") : L.T("ShiftDrop — drag a file, press Shift", "اسحب ملفًا واضغط Shift");
+        var tip = Settings.Paused ? L.T("ShiftDrop (paused)", "ShiftDrop (متوقف)") : L.T("ShiftDrop — drag a file, press Shift", "ShiftDrop — اسحب ملفًا واضغط Shift");
         for (int i = 0; i < tip.Length && i < 127; i++) d.Tip[i] = tip[i];
         return d;
     }
@@ -331,66 +442,35 @@ public sealed unsafe class App : Window
     {
         bool rtl = L.Arabic;
         uint dir = rtl ? W.MFT_RIGHTORDER | W.MFT_RIGHTJUSTIFY : 0;
-        uint Check(bool on) => on ? W.MF_CHECKED : 0;
         var menu = W.CreatePopupMenu();
-        var lang = W.CreatePopupMenu();
-        var save = W.CreatePopupMenu();
         try
         {
-            W.AppendMenuW(menu, dir, 1, Settings.Paused ? L.T("Resume ShiftDrop", "تشغيل ShiftDrop") : L.T("Pause ShiftDrop", "إيقاف ShiftDrop مؤقتًا"));
+            W.AppendMenuW(menu, dir, 1, L.T("Settings…", "الإعدادات…"));
             W.AppendMenuW(menu, W.MF_SEPARATOR, 0, null);
-            W.AppendMenuW(lang, dir | Check(Settings.Language == "auto"), 11, L.T("Same as Windows", "مثل Windows"));
-            W.AppendMenuW(lang, dir | Check(Settings.Language == "ar"), 12, "العربية");
-            W.AppendMenuW(lang, dir | Check(Settings.Language == "en"), 13, "English");
-            W.AppendMenuW(menu, dir | W.MF_POPUP, (nuint)lang, L.T("Language", "اللغة"));
-            W.AppendMenuW(save, dir | Check(Settings.SaveTo != "downloads"), 21, L.T("Next to the original", "بجانب الملف الأصلي"));
-            W.AppendMenuW(save, dir | Check(Settings.SaveTo == "downloads"), 22, L.T("Downloads folder", "مجلد التنزيلات"));
-            W.AppendMenuW(menu, dir | W.MF_POPUP, (nuint)save, L.T("Save results", "حفظ النتائج"));
-            W.AppendMenuW(menu, dir | Check(Settings.AllApps), 30, L.T("Work in all apps", "العمل في كل التطبيقات"));
-            W.AppendMenuW(menu, dir | Check(Settings.StartWithWindows), 40, L.T("Start with Windows", "التشغيل مع Windows"));
-            W.AppendMenuW(menu, W.MF_SEPARATOR, 0, null);
-            W.AppendMenuW(menu, dir, 50, L.T("How to use", "طريقة الاستخدام"));
-            W.AppendMenuW(menu, dir, 51, L.T("Open log folder", "فتح مجلد السجلات"));
-            W.AppendMenuW(menu, dir, 52, L.T("About ShiftDrop", "عن ShiftDrop"));
+            W.AppendMenuW(menu, dir, 2, Settings.Paused ? L.T("Turn ShiftDrop back on", "تشغيل ShiftDrop") : L.T("Turn ShiftDrop off for now", "إيقاف ShiftDrop مؤقتًا"));
+            W.AppendMenuW(menu, dir, 3, L.T("Check for updates", "البحث عن تحديثات"));
+            W.AppendMenuW(menu, dir, 4, L.T("How to use", "طريقة الاستخدام"));
             W.AppendMenuW(menu, W.MF_SEPARATOR, 0, null);
             W.AppendMenuW(menu, dir, 99, L.T("Quit", "خروج"));
+            SetDefaultItem(menu, 1);
 
             var p = W.Cursor();
             W.SetForegroundWindow(Hwnd);
             int cmd = W.TrackPopupMenuEx(menu, W.TPM_RETURNCMD | W.TPM_RIGHTBUTTON | W.TPM_BOTTOMALIGN | (rtl ? W.TPM_LAYOUTRTL : 0), p.X, p.Y, Hwnd, IntPtr.Zero);
             W.PostMessageW(Hwnd, W.WM_NULL, 0, 0);
-            OnMenu(cmd);
+            switch (cmd)
+            {
+                case 1: ShowSettings(); break;
+                case 2: Settings.Paused = !Settings.Paused; ApplySettings(); break;
+                case 3: _ = CheckForUpdatesAsync(manual: true); break;
+                case 4: ShowTip(15); break;
+                case 99: W.PostQuitMessage(0); break;
+            }
         }
-        finally { W.DestroyMenu(menu); } // also destroys the submenus
+        finally { W.DestroyMenu(menu); }
     }
 
-    void OnMenu(int cmd)
-    {
-        switch (cmd)
-        {
-            case 1: Settings.Paused = !Settings.Paused; break;
-            case 11: Settings.Language = "auto"; break;
-            case 12: Settings.Language = "ar"; break;
-            case 13: Settings.Language = "en"; break;
-            case 21: Settings.SaveTo = "beside"; break;
-            case 22: Settings.SaveTo = "downloads"; break;
-            case 30: Settings.AllApps = !Settings.AllApps; break;
-            case 40: Settings.StartWithWindows = !Settings.StartWithWindows; return;
-            case 50: ShowTip(15); return;
-            case 51:
-                Directory.CreateDirectory(Log.Folder!);
-                Process.Start(new ProcessStartInfo("explorer.exe", $"\"{Log.Folder}\"") { UseShellExecute = false });
-                return;
-            case 52:
-                Hud.Info($"ShiftDrop {typeof(App).Assembly.GetName().Version?.ToString(3)}",
-                    L.T("Free and open source (MIT). Uses FFmpeg (LGPL) and PDFium (BSD). Everything runs on this PC.",
-                        "مجاني ومفتوح المصدر (MIT). يستخدم FFmpeg (LGPL) وPDFium (BSD). كل شيء يعمل على جهازك."), seconds: 12);
-                return;
-            case 99: W.PostQuitMessage(0); return;
-            default: return;
-        }
-        L.Arabic = Settings.Arabic;
-        Settings.Save();
-        UpdateTrayIcon();
-    }
+    [System.Runtime.InteropServices.LibraryImport("user32.dll")]
+    private static partial int SetMenuDefaultItem(IntPtr menu, uint item, uint byPosition);
+    static void SetDefaultItem(IntPtr menu, uint id) => SetMenuDefaultItem(menu, id, 0);
 }

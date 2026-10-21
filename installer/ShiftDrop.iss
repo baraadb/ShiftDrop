@@ -35,26 +35,43 @@ Compression=lzma2/ultra64
 SolidCompression=yes
 LZMANumBlockThreads=4
 CloseApplications=no
+ShowLanguageDialog=auto
 
 [Languages]
+; the wizard follows the Windows display language (Arabic.isl is Inno Setup's own translation, 6.5+)
 Name: "english"; MessagesFile: "compiler:Default.isl"
+Name: "arabic"; MessagesFile: "Arabic.isl"
+
+[CustomMessages]
+english.Options=Options:
+arabic.Options=خيارات:
+english.Autostart=Start ShiftDrop with Windows (recommended)
+arabic.Autostart=تشغيل ShiftDrop مع Windows (يُنصح به)
+english.SendTo=Add ShiftDrop to the right-click "Send to" menu
+arabic.SendTo=إضافة ShiftDrop إلى قائمة «إرسال إلى»
+english.StartNow=Start ShiftDrop now
+arabic.StartNow=تشغيل ShiftDrop الآن
+english.Comment=Drag a file, press Shift
+arabic.Comment=اسحب ملفًا واضغط Shift
 
 [Tasks]
-Name: "autostart"; Description: "Start ShiftDrop with Windows (recommended)"; GroupDescription: "Options:"
-Name: "sendto"; Description: "Add ShiftDrop to the right-click ""Send to"" menu"; GroupDescription: "Options:"
+Name: "autostart"; Description: "{cm:Autostart}"; GroupDescription: "{cm:Options}"
+Name: "sendto"; Description: "{cm:SendTo}"; GroupDescription: "{cm:Options}"
 
 [Files]
 Source: "..\build\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{userprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; Comment: "Drag a file, press Shift"
+Name: "{userprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; Comment: "{cm:Comment}"
 Name: "{usersendto}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: sendto
 
 [Registry]
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "{#AppName}"; ValueData: """{app}\{#AppExe}"""; Flags: uninsdeletevalue; Tasks: autostart
 
 [Run]
-Filename: "{app}\{#AppExe}"; Description: "Start ShiftDrop now"; Flags: postinstall nowait skipifsilent
+Filename: "{app}\{#AppExe}"; Description: "{cm:StartNow}"; Flags: postinstall nowait skipifsilent
+; after a silent update started from inside ShiftDrop, bring it back
+Filename: "{app}\{#AppExe}"; Flags: nowait; Check: WizardSilent
 
 [UninstallRun]
 Filename: "{app}\{#AppExe}"; Parameters: "--quit"; RunOnceId: "QuitShiftDrop"; Flags: runhidden waituntilterminated skipifdoesntexist

@@ -18,6 +18,10 @@ public sealed class Wheel : LayeredWindow, IDropHandler
     public required Action<Operation, IReadOnlyList<string>> Execute { get; init; }
     /// <summary>Raised when the drag carries no files, or after a drop: don't reopen until the button is released.</summary>
     public Action? Done { get; init; }
+    /// <summary>Size multiplier from the settings.</summary>
+    public Func<float> SizeFactor { get; init; } = () => 1f;
+    /// <summary>Key names for the hint line (open, tools, actions), or null to hide hints.</summary>
+    public Func<(string Open, string Tools, string Actions)?> Hints { get; init; } = () => ("Shift", "Ctrl", "Alt");
 
     public OpGroup Mode { get; private set; } = OpGroup.Convert;
     public bool ClickMode { get; private set; }
@@ -77,7 +81,7 @@ public sealed class Wheel : LayeredWindow, IDropHandler
     void Open(POINT at, bool activate)
     {
         _theme = Theme.Current;
-        _scale = W.ScaleAt(at);
+        _scale = W.ScaleAt(at) * SizeFactor();
         Canvas.Scale = _scale;
         Canvas.Ensure(SizePx, SizePx);
         // centre on the pointer, but keep the whole wheel on the screen
@@ -176,16 +180,18 @@ public sealed class Wheel : LayeredWindow, IDropHandler
             : n == 0 ? L.T("Nothing here", "لا خيارات")
             : _files.Count == 1 ? Path.GetFileName(_files[0].TrimEnd('\\', '/'))
             : L.T($"{_files.Count} files", $"{_files.Count} ملفات");
-        string hint = ClickMode ? L.T("Tab: switch", "تبديل: Tab") : Mode switch
-        {
-            OpGroup.Tool => L.T("Shift formats · Alt actions", "صيغ Shift · إجراءات Alt"),
-            OpGroup.Action => L.T("Shift formats · Ctrl tools", "صيغ Shift · أدوات Ctrl"),
-            _ => L.T("Ctrl tools · Alt actions", "أدوات Ctrl · إجراءات Alt"),
-        };
+        var keys = Hints();
+        string hint = keys is not { } k ? ""
+            : ClickMode ? L.T("Tab: switch", "Tab: تبديل")
+            : Mode switch
+            {
+                OpGroup.Tool => L.T($"{k.Open} formats · {k.Actions} actions", $"{k.Open} صيغ · {k.Actions} إجراءات"),
+                OpGroup.Action => L.T($"{k.Open} formats · {k.Tools} tools", $"{k.Open} صيغ · {k.Tools} أدوات"),
+                _ => L.T($"{k.Tools} tools · {k.Actions} actions", $"{k.Tools} أدوات · {k.Actions} إجراءات"),
+            };
         float hw = HubR * 2 * s * 0.86f;
         c.Text(title, cx - hw / 2, cy - 33 * s, hw, 16 * s, 11.5f * s, th.HubSub);
-        // a file name stays left to right even in the Arabic interface
-        c.Text(main, cx - hw / 2, cy - 14 * s, hw, 26 * s, 15f * s, th.HubText, bold: true, rtl: Core.Engines.Documents.IsRtl(main) || (L.Arabic && main == "…"));
+        c.Text(main, cx - hw / 2, cy - 14 * s, hw, 26 * s, 15f * s, th.HubText, bold: true);
         c.Text(hint, cx - hw / 2, cy + 14 * s, hw, 16 * s, 9.5f * s, th.HubSub);
         c.ResetTransform();
     }
