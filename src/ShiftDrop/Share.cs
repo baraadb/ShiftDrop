@@ -13,7 +13,7 @@ namespace ShiftDrop;
 /// Opens the Windows share sheet (Nearby sharing, Mail, Teams, WhatsApp...) for files.
 /// If that isn't possible, the files go to the clipboard so they can be pasted anywhere.
 /// </summary>
-public static unsafe partial class Share
+public static partial class Share
 {
     static IReadOnlyList<string> _files = [];
 
@@ -23,6 +23,7 @@ public static unsafe partial class Share
         try
         {
 #if WINDOWS10_0_17763_0_OR_GREATER
+            if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 17763)) throw new PlatformNotSupportedException();
             ShowSheet();
             return;
 #else
@@ -46,7 +47,8 @@ public static unsafe partial class Share
     static DataTransferManager? _manager;
     static IntPtr _interop;
 
-    static void ShowSheet()
+    [System.Runtime.Versioning.SupportedOSPlatform("windows10.0.17763")]
+    static unsafe void ShowSheet()
     {
         // the sheet needs a visible window of ours: an invisible one at the pointer
         _anchor ??= new ShareAnchor();
@@ -77,6 +79,7 @@ public static unsafe partial class Share
         Check(((delegate* unmanaged[Stdcall]<IntPtr, IntPtr, int>)vtbl[4])(_interop, hwnd));
     }
 
+    [System.Runtime.Versioning.SupportedOSPlatform("windows10.0.17763")]
     static async void OnDataRequested(DataTransferManager sender, DataRequestedEventArgs args)
     {
         var request = args.Request;
@@ -113,7 +116,7 @@ public static unsafe partial class Share
 #endif
 
     /// <summary>Puts the files on the clipboard the way Explorer's Copy does (CF_HDROP).</summary>
-    public static bool CopyFiles(IntPtr owner, IReadOnlyList<string> files)
+    public static unsafe bool CopyFiles(IntPtr owner, IReadOnlyList<string> files)
     {
         var list = string.Join("\0", files) + "\0\0";
         int header = 20; // DROPFILES: pFiles, pt, fNC, fWide
