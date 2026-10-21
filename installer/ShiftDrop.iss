@@ -13,7 +13,7 @@ AppName={#AppName}
 AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
 AppPublisher=ShiftDrop (open source)
-AppPublisherURL=https://github.com/
+AppPublisherURL=https://github.com/baraadb/ShiftDrop
 AppComments=Drag a file, press Shift, drop it on a format.
 VersionInfoVersion={#AppVersion}
 ; per-user install: no admin prompt

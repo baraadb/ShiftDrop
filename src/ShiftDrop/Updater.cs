@@ -9,7 +9,7 @@ namespace ShiftDrop;
 /// <summary>Where updates come from. Set <see cref="Repo"/> once the project is on GitHub ("owner/name").</summary>
 public static class AppInfo
 {
-    public const string Repo = "";
+    public const string Repo = "baraadb/ShiftDrop";
     public static Version Version => typeof(AppInfo).Assembly.GetName().Version ?? new Version(0, 1, 0);
     public static string VersionText => Version.ToString(3);
     public static string? Website => Repo.Length > 0 ? $"https://github.com/{Repo}" : null;
