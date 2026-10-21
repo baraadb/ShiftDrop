@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using ShiftDrop.Core;
+using ShiftDrop.Core.Engines;
 using ShiftDrop.Native;
 
 namespace ShiftDrop.UI;
@@ -133,14 +134,14 @@ public sealed class Hud : LayeredWindow
         var job = card.Job;
         if (job == null)
         {
-            c.Text(card.Title, textX, y + 12 * s, textW, 20 * s, 13.5f * s, card.Error ? th.Danger : th.CardText, bold: true, align: align);
-            c.Text(card.Body, x + inner, y + 34 * s, w - inner * 2, h - 42 * s, 12 * s, th.CardSub, align: align, valign: Align.Near, wrap: true);
+            c.Text(card.Title, textX, y + 12 * s, textW, 20 * s, 13.5f * s, card.Error ? th.Danger : th.CardText, bold: true, align: align, rtl: Dir(card.Title));
+            c.Text(card.Body, x + inner, y + 34 * s, w - inner * 2, h - 42 * s, 12 * s, th.CardSub, align: align, valign: Align.Near, wrap: true, rtl: Dir(card.Body));
             card.LinkBox = default;
             return;
         }
 
         c.Text(job.Title, textX, y + 12 * s, textW, 20 * s, 13.5f * s, th.CardText, bold: true, align: align);
-        c.Text(job.Subtitle, textX, y + 33 * s, textW, 18 * s, 12 * s, th.CardSub, align: align, rtl: Core.Engines.Documents.IsRtl(job.Subtitle));
+        c.Text(job.Subtitle, textX, y + 33 * s, textW, 18 * s, 12 * s, th.CardSub, align: align, rtl: Dir(job.Subtitle));
         float barY = y + 58 * s, barX = x + inner, barW = w - inner * 2;
         card.LinkBox = default;
         switch (job.State)
@@ -170,10 +171,14 @@ public sealed class Hud : LayeredWindow
                 c.Text(L.T("Cancelled", "أُلغي"), barX, barY - 8 * s, barW, 20 * s, 12.5f * s, th.CardSub, align: align);
                 break;
             case JobState.Failed:
-                c.Text(job.Error ?? L.T("Failed", "فشل"), barX, barY - 6 * s, barW, 36 * s, 12 * s, th.Danger, align: align, valign: Align.Near, wrap: true);
+                var err = job.Error ?? L.T("Failed", "فشل");
+                c.Text(err, barX, barY - 6 * s, barW, 36 * s, 12 * s, th.Danger, align: align, valign: Align.Near, wrap: true, rtl: Dir(err));
                 break;
         }
     }
+
+    /// <summary>Arabic text runs right to left; paths, file names and engine errors keep left to right.</summary>
+    static bool Dir(string text) => Documents.IsRtl(text);
 
     // ---------------- input ----------------
 

@@ -176,15 +176,16 @@ public sealed class Wheel : LayeredWindow, IDropHandler
             : n == 0 ? L.T("Nothing here", "لا خيارات")
             : _files.Count == 1 ? Path.GetFileName(_files[0].TrimEnd('\\', '/'))
             : L.T($"{_files.Count} files", $"{_files.Count} ملفات");
-        string hint = ClickMode ? L.T("Tab: switch", "Tab: تبديل") : Mode switch
+        string hint = ClickMode ? L.T("Tab: switch", "تبديل: Tab") : Mode switch
         {
-            OpGroup.Tool => L.T("Shift formats · Alt actions", "Shift صيغ · Alt إجراءات"),
-            OpGroup.Action => L.T("Shift formats · Ctrl tools", "Shift صيغ · Ctrl أدوات"),
-            _ => L.T("Ctrl tools · Alt actions", "Ctrl أدوات · Alt إجراءات"),
+            OpGroup.Tool => L.T("Shift formats · Alt actions", "صيغ Shift · إجراءات Alt"),
+            OpGroup.Action => L.T("Shift formats · Ctrl tools", "صيغ Shift · أدوات Ctrl"),
+            _ => L.T("Ctrl tools · Alt actions", "أدوات Ctrl · إجراءات Alt"),
         };
         float hw = HubR * 2 * s * 0.86f;
         c.Text(title, cx - hw / 2, cy - 33 * s, hw, 16 * s, 11.5f * s, th.HubSub);
-        c.Text(main, cx - hw / 2, cy - 14 * s, hw, 26 * s, 15f * s, th.HubText, bold: true);
+        // a file name stays left to right even in the Arabic interface
+        c.Text(main, cx - hw / 2, cy - 14 * s, hw, 26 * s, 15f * s, th.HubText, bold: true, rtl: Core.Engines.Documents.IsRtl(main) || (L.Arabic && main == "…"));
         c.Text(hint, cx - hw / 2, cy + 14 * s, hw, 16 * s, 9.5f * s, th.HubSub);
         c.ResetTransform();
     }

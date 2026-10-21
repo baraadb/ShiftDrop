@@ -120,11 +120,11 @@ public sealed unsafe class App : Window
     void StartupNotes(bool pdfium)
     {
         if (!Services.FFmpeg.Available)
-            Hud.Info(L.T("FFmpeg is missing", "FFmpeg غير موجود"),
+            Hud.Info(L.T("FFmpeg is missing", "برنامج FFmpeg غير موجود"),
                 L.T("Image, video and audio conversions are off. Reinstall ShiftDrop to bring them back.",
                     "تحويلات الصور والفيديو والصوت معطلة. أعد تثبيت ShiftDrop لإرجاعها."), error: true, seconds: 15);
         if (!pdfium)
-            Hud.Info(L.T("PDFium is missing", "PDFium غير موجود"),
+            Hud.Info(L.T("PDFium is missing", "مكتبة PDFium غير موجودة"),
                 L.T("PDF tools are off. Reinstall ShiftDrop to bring them back.", "أدوات PDF معطلة. أعد تثبيت ShiftDrop لإرجاعها."), error: true, seconds: 15);
         if (!Settings.Welcomed)
         {
@@ -135,7 +135,7 @@ public sealed unsafe class App : Window
     }
 
     void ShowTip(double seconds = 10) =>
-        Hud.Info(L.T("ShiftDrop is ready", "ShiftDrop جاهز"),
+        Hud.Info(L.T("ShiftDrop is ready", "برنامج ShiftDrop جاهز"),
             L.T("Drag a file and press Shift, then drop it on a format. While the wheel is open: Ctrl for tools, Alt for actions.",
                 "اسحب ملفًا واضغط Shift، ثم أفلته على الصيغة. والعجلة مفتوحة: Ctrl للأدوات، Alt للإجراءات."),
             seconds: seconds);
@@ -299,7 +299,7 @@ public sealed unsafe class App : Window
             CallbackMessage = WM_TRAY,
             Icon = _icon,
         };
-        var tip = Settings.Paused ? L.T("ShiftDrop (paused)", "ShiftDrop (متوقف)") : L.T("ShiftDrop — drag a file, press Shift", "ShiftDrop — اسحب ملفًا واضغط Shift");
+        var tip = Settings.Paused ? L.T("ShiftDrop (paused)", "برنامج ShiftDrop متوقف مؤقتًا") : L.T("ShiftDrop — drag a file, press Shift", "اسحب ملفًا واضغط Shift");
         for (int i = 0; i < tip.Length && i < 127; i++) d.Tip[i] = tip[i];
         return d;
     }
