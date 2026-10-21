@@ -11,7 +11,9 @@
 
 السكربت يثبّت ‎.NET 10 SDK إن لم يكن موجودًا، ويبني البرنامج، وينزّل FFmpeg وPDFium، ثم يثبّته لحسابك فقط (بلا صلاحيات مدير) في `%LOCALAPPDATA%\Programs\ShiftDrop`. يضيف أيضًا اختصارًا في قائمة ابدأ وفي «إرسال إلى»، ويشغّل البرنامج مع Windows.
 
-أول مرة تأخذ بضع دقائق، لأن FFmpeg وحده حوالي 180 ميغا. للإزالة: من «التطبيقات المثبتة» في الإعدادات، أو شغّل `Uninstall-ShiftDrop.ps1`.
+أول مرة تأخذ بضع دقائق، لأن FFmpeg وحده حوالي 180 ميغا.
+
+**ملف تثبيت واحد للمشاركة:** بعد البناء، انقر مرتين على **`Build-Setup.cmd`** فيصنع `build\ShiftDrop-Setup-<الإصدار>.exe`. هذا الملف فيه كل شيء (البرنامج وبيئة .NET وFFmpeg وPDFium)، فمن يثبّته لا يحتاج إنترنت ولا .NET ولا صلاحيات مدير. للإزالة: من «التطبيقات المثبتة» في الإعدادات، أو شغّل `Uninstall-ShiftDrop.ps1`.
 
 ## الاستخدام
 
@@ -50,6 +52,7 @@
 **Convert any file while you drag it.** Drag a file in File Explorer, press **Shift**, and a wheel of formats appears under the pointer. Drop the file on a format and a new copy is saved next to the original. Everything runs on your PC.
 
 - **Install:** unzip, double-click `Install.cmd` (per-user, no admin).
+- **Share:** double-click `Build-Setup.cmd` to make `build\ShiftDrop-Setup-<version>.exe`, a single offline installer (app, .NET runtime, FFmpeg, PDFium).
 - **Use:** drag + Shift for formats. While the wheel is open, Ctrl for tools and Alt for actions. Or right-click → Send to → ShiftDrop.
 - **Safe:** sources are read-only, nothing is overwritten, and a failed or cancelled job leaves nothing behind.
 

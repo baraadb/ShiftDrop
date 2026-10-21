@@ -34,13 +34,23 @@ jobs:
           $v = (Get-Item build/publish/ShiftDrop.exe).VersionInfo.ProductVersion.Split('+')[0]
           Compress-Archive -Path build/publish/* -DestinationPath "build/ShiftDrop-$v-win-x64.zip"
 
+      - name: Setup.exe
+        shell: pwsh
+        run: |
+          $v = (Get-Item build/publish/ShiftDrop.exe).VersionInfo.ProductVersion.Split('+')[0]
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$v" installer/ShiftDrop.iss
+
       - uses: actions/upload-artifact@v4
         with:
           name: ShiftDrop-win-x64
-          path: build/ShiftDrop-*-win-x64.zip
+          path: |
+            build/ShiftDrop-*-win-x64.zip
+            build/ShiftDrop-Setup-*.exe
 
       - name: Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: build/ShiftDrop-*-win-x64.zip
+          files: |
+            build/ShiftDrop-*-win-x64.zip
+            build/ShiftDrop-Setup-*.exe
