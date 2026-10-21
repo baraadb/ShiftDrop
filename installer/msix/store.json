@@ -1,6 +1,6 @@
 {
-  "_comment": "Copy these three values from Partner Center > ShiftDrop > Product identity. Until then the package builds with placeholders (fine for testing, not for upload).",
-  "IdentityName": "ShiftDrop.Placeholder",
-  "Publisher": "CN=00000000-0000-0000-0000-000000000000",
-  "PublisherDisplayName": "ShiftDrop"
+  "_comment": "From Partner Center > ShiftDrop > Product identity.",
+  "IdentityName": "BaraaAdel.ShiftDrop",
+  "Publisher": "CN=153B00BF-1837-4171-ADCD-39385BB4C9B4",
+  "PublisherDisplayName": "Baraa Adel"
 }
