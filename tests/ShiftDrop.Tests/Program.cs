@@ -20,7 +20,15 @@ async Task T(string name, Func<Task> body)
     var sw = Stopwatch.StartNew();
     try { await body(); pass++; Console.WriteLine($"  ok   {name} ({sw.ElapsedMilliseconds} ms)"); }
     catch (SkipException s) { skip++; Console.WriteLine($"  skip {name}: {s.Message}"); }
-    catch (Exception e) { fail++; Console.WriteLine($"  FAIL {name}: {e.Message}"); Console.WriteLine("       " + e.StackTrace?.Split('\n').FirstOrDefault()?.Trim()); }
+    catch (Exception e)
+    {
+        fail++;
+        Console.WriteLine($"  FAIL {name}: {e.Message}");
+        Console.WriteLine("       " + e.StackTrace?.Split('\n').FirstOrDefault()?.Trim());
+        // on GitHub Actions, failures become annotations (readable without the raw log)
+        if (Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true")
+            Console.WriteLine($"::error title=test {name.Replace(":", " ")}::{e.Message.Replace("%", "%25").Replace("\r", "").Replace("\n", "%0A")}");
+    }
 }
 void Assert(bool c, string m) { if (!c) throw new Exception(m); }
 string Dir(string n) { var d = Path.Combine(root, n); Directory.CreateDirectory(d); return d; }
@@ -38,6 +46,8 @@ void NeedFf() { if (!ff.Available) throw new SkipException("ffmpeg not found"); 
 void NeedPdf() { if (!Pdfium.Available) throw new SkipException("pdfium not found"); }
 
 Console.WriteLine($"ffmpeg: {ff.FfmpegPath ?? "none"} · pdfium: {Pdfium.Available} · h264: {(ff.Available ? ff.H264 : "-")}");
+if (Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true")
+    Console.WriteLine($"::notice title=test setup::ffmpeg {(ff.Available ? "found" : "missing")}, pdfium {Pdfium.Available}, h264 encoder {(ff.Available ? ff.H264 : "-")}");
 
 // ---------- fixtures ----------
 var media = Dir("media");
