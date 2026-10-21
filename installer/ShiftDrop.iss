@@ -31,9 +31,12 @@ UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName}
 LicenseFile=..\LICENSE
 WizardStyle=modern
-Compression=lzma2/ultra64
+Compression=lzma2/max
 SolidCompression=yes
-LZMANumBlockThreads=4
+; compress in a separate process with one thread: the compiler is 32-bit and runs out of memory otherwise
+LZMAUseSeparateProcess=yes
+LZMANumBlockThreads=1
+LZMADictionarySize=32768
 CloseApplications=no
 ShowLanguageDialog=auto
 
