@@ -6,6 +6,9 @@ on:
     tags: ['v*']
   pull_request:
 
+permissions:
+  contents: write   # to attach Setup.exe to releases
+
 jobs:
   windows:
     runs-on: windows-latest
@@ -37,8 +40,12 @@ jobs:
       - name: Setup.exe
         shell: pwsh
         run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          # Arabic.isl needs Inno Setup 6.5 or newer; this installs or upgrades it
+          choco upgrade innosetup -y --no-progress | Out-Host
           $v = (Get-Item build/publish/ShiftDrop.exe).VersionInfo.ProductVersion.Split('+')[0]
-          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$v" installer/ShiftDrop.iss
+          & $iscc "/DAppVersion=$v" installer/ShiftDrop.iss
+          if (-not (Test-Path "build/ShiftDrop-Setup-$v.exe")) { throw 'Setup.exe was not produced' }
 
       - uses: actions/upload-artifact@v4
         with:

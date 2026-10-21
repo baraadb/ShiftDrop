@@ -43,12 +43,14 @@ Console.WriteLine($"ffmpeg: {ff.FfmpegPath ?? "none"} · pdfium: {Pdfium.Availab
 var media = Dir("media");
 string png = Path.Combine(media, "photo.png"), jpg = Path.Combine(media, "photo.jpg");
 string mp4 = Path.Combine(media, "clip.mp4"), mp4b = Path.Combine(media, "clip two.mp4"), wav = Path.Combine(media, "tone.wav"), gif = Path.Combine(media, "anim.gif");
+// fixtures use whatever H.264 encoder this ffmpeg has (the Windows LGPL build has no libx264)
+string[] H264() => ff.H264 == "libx264" ? ["-c:v", "libx264", "-preset", "ultrafast"] : ["-c:v", ff.H264];
 if (ff.Available)
 {
     await Gen("-f", "lavfi", "-i", "testsrc2=s=320x240:d=1", "-vf", "format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lt(X,40),0,255)'", "-frames:v", "1", "-update", "1", png);
     await Gen("-f", "lavfi", "-i", "testsrc2=s=320x240:d=1", "-frames:v", "1", "-update", "1", "-q:v", "3", jpg);
-    await Gen("-f", "lavfi", "-i", "testsrc2=s=320x240:r=25:d=2", "-f", "lavfi", "-i", "sine=f=440:d=2", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", mp4);
-    await Gen("-f", "lavfi", "-i", "testsrc2=s=176x144:r=25:d=1", "-f", "lavfi", "-i", "sine=f=660:d=1", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", mp4b);
+    await Gen(["-f", "lavfi", "-i", "testsrc2=s=320x240:r=25:d=2", "-f", "lavfi", "-i", "sine=f=440:d=2", .. H264(), "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", mp4]);
+    await Gen(["-f", "lavfi", "-i", "testsrc2=s=176x144:r=25:d=1", "-f", "lavfi", "-i", "sine=f=660:d=1", .. H264(), "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", mp4b]);
     await Gen("-f", "lavfi", "-i", "sine=f=440:d=2", wav);
     await Gen("-f", "lavfi", "-i", "testsrc2=s=160x120:r=10:d=1", gif);
 }
@@ -109,7 +111,7 @@ await T("cancel leaves nothing behind", async () =>
 {
     NeedFf();
     var d = Dir("cancel"); var src = Path.Combine(d, "long.mp4");
-    await Gen("-f", "lavfi", "-i", "testsrc2=s=640x480:r=30:d=20", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", src);
+    await Gen(["-f", "lavfi", "-i", "testsrc2=s=640x480:r=30:d=20", .. H264(), "-pix_fmt", "yuv420p", src]);
     var job = new Job { Op = Op("vid.to.webm"), Inputs = [src] };
     var q = new JobQueue(services);
     var started = new TaskCompletionSource();
