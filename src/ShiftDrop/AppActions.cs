@@ -18,6 +18,12 @@ public static unsafe class AppActions
             app.Hud.Info(L.T("Copied", "تم النسخ"), files.Count == 1 ? files[0] : L.T($"{files.Count} paths", $"{files.Count} مسارات"), seconds: 3);
         }));
         Catalog.Add(Action("act.terminal", "Terminal here", "الطرفية هنا", files => OpenTerminal(FolderOf(files[0]))));
+        Catalog.Add(new Operation
+        {
+            Id = "act.share", Group = OpGroup.Action, En = "Share", Ar = "مشاركة",
+            Kinds = Any.Where(k => k != FileKind.Folder).ToArray(),
+            Immediate = files => Share.Files(app, files), Run = _ => Task.CompletedTask,
+        });
         Catalog.Add(Action("act.copyto", "Copy to…", "نسخ إلى…", files => Transfer(app, files, move: false)));
         Catalog.Add(Action("act.moveto", "Move to…", "نقل إلى…", files => Transfer(app, files, move: true)));
         Catalog.Add(Action("act.properties", "Properties", "الخصائص", files => Properties(files[0])));

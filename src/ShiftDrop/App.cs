@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using ShiftDrop.Core;
 using ShiftDrop.Core.Engines;
+using ShiftDrop.Core.Ops;
 using ShiftDrop.Native;
 using ShiftDrop.UI;
 
@@ -77,6 +78,7 @@ public sealed partial class App : Window
 
         var tools = Path.Combine(appDir, "tools");
         Pdfium.SearchDirs.Add(tools);
+        Onnx.SearchDirs.Add(tools);
         var services = new Services { FFmpeg = FFmpeg.Locate(tools, appDir) };
         foreach (var sz in new[] {
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "7-Zip", "7z.exe"),
@@ -85,6 +87,8 @@ public sealed partial class App : Window
 
         var app = new App(settings, services);
         _instance = app;
+        // awaits in UI code come back to this thread
+        SynchronizationContext.SetSynchronizationContext(new UiContext());
         app.Hud = new Hud();
         app.Wheel = new Wheel
         {
@@ -105,6 +109,8 @@ public sealed partial class App : Window
         {
             try { if (PrintPdfRenderer.Available()) services.DocRenderer = new PrintPdfRenderer(); } catch (Exception e) { Log.Write("printer: " + e.Message); }
             bool pdf = Pdfium.Available;
+            // loads ONNX Runtime once now, so the first image wheel doesn't wait for it
+            Log.Write("background removal: " + (MediaOps.BackgroundAvailable ? "ready" : "not available"));
             Post(() => app.StartupNotes(pdf));
             if (services.FFmpeg.Available) { Thread.Sleep(3000); Log.Write("h264 encoder: " + services.FFmpeg.H264); }
             // daily update check, a little after start-up so it never slows the login
@@ -160,6 +166,7 @@ public sealed partial class App : Window
         try
         {
             if (op.Immediate != null) { op.Immediate(files); return; }
+            if (op.Editor == "crop") { _ = CropAsync(op, files[0]); return; }
             Dictionary<string, string>? options = null;
             if (op.Fields is { Length: > 0 })
             {
@@ -167,15 +174,48 @@ public sealed partial class App : Window
                 options = InputDialog.Ask(op.Label, subtitle, op.Fields);
                 if (options == null) return;
             }
-            var job = Queue.Enqueue(op, files, options);
-            if (Settings.ShowCards) { Hud.Track(job); Hud.Update(job); }
-            else _quiet.Add(job);
+            Start(op, files, options);
         }
         catch (Exception e)
         {
             Log.Write($"execute {op.Id}: {e}");
             Hud.Info(op.Label, e.Message, error: true);
         }
+    }
+
+    void Start(Operation op, IReadOnlyList<string> files, Dictionary<string, string>? options)
+    {
+        var job = Queue.Enqueue(op, files, options);
+        if (Settings.ShowCards) { Hud.Track(job); Hud.Update(job); }
+        else _quiet.Add(job);
+    }
+
+    /// <summary>Opens the crop editor on a preview, then crops the full picture.</summary>
+    async Task CropAsync(Operation op, string file)
+    {
+        var temp = Path.Combine(Path.GetTempPath(), $"shiftdrop-preview-{Guid.NewGuid():N}.png");
+        try
+        {
+            var ff = Services.FFmpeg;
+            var info = await ff.InfoAsync(file, CancellationToken.None);
+            var (rgba, pw, ph) = await MediaOps.DecodeRgba(ff, file, temp, CancellationToken.None,
+                "scale=w='min(1600,iw)':h='min(1600,ih)':force_original_aspect_ratio=decrease");
+            // the picture's upright size: the probe can report it sideways when EXIF rotates it
+            int fw = info.Width, fh = info.Height;
+            if (fw <= 0 || fh <= 0) (fw, fh) = (pw, ph);
+            else if (fw != fh && (pw > ph) != (fw > fh)) (fw, fh) = (fh, fw);
+            for (int i = 0; i < rgba.Length; i += 4) (rgba[i], rgba[i + 2]) = (rgba[i + 2], rgba[i]); // RGBA → BGRA
+            var area = CropWindow.Ask(Path.GetFileName(file), rgba, pw, ph, fw, fh);
+            if (area is not var (x, y, w, h)) return;
+            if (x == 0 && y == 0 && w == fw && h == fh) return; // nothing cut away
+            Start(op, [file], new() { ["crop"] = string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{x},{y},{w},{h}") });
+        }
+        catch (Exception e)
+        {
+            Log.Write("crop: " + e);
+            Hud.Info(op.Label, e.Message, error: true);
+        }
+        finally { try { File.Delete(temp); } catch { } }
     }
 
     readonly HashSet<Job> _quiet = [];
@@ -450,6 +490,7 @@ public sealed partial class App : Window
             W.AppendMenuW(menu, dir, 2, Settings.Paused ? L.T("Turn ShiftDrop back on", "تشغيل ShiftDrop") : L.T("Turn ShiftDrop off for now", "إيقاف ShiftDrop مؤقتًا"));
             W.AppendMenuW(menu, dir, 3, L.T("Check for updates", "البحث عن تحديثات"));
             W.AppendMenuW(menu, dir, 4, L.T("How to use", "طريقة الاستخدام"));
+            W.AppendMenuW(menu, dir, 5, L.T("Support the developer ♥", "ادعم المطور ♥"));
             W.AppendMenuW(menu, W.MF_SEPARATOR, 0, null);
             W.AppendMenuW(menu, dir, 99, L.T("Quit", "خروج"));
             SetDefaultItem(menu, 1);
@@ -464,6 +505,7 @@ public sealed partial class App : Window
                 case 2: Settings.Paused = !Settings.Paused; ApplySettings(); break;
                 case 3: _ = CheckForUpdatesAsync(manual: true); break;
                 case 4: ShowTip(15); break;
+                case 5: Updater.OpenPage(AppInfo.Donate); break;
                 case 99: W.PostQuitMessage(0); break;
             }
         }
@@ -473,4 +515,12 @@ public sealed partial class App : Window
     [System.Runtime.InteropServices.LibraryImport("user32.dll")]
     private static partial int SetMenuDefaultItem(IntPtr menu, uint item, uint byPosition);
     static void SetDefaultItem(IntPtr menu, uint id) => SetMenuDefaultItem(menu, id, 0);
+}
+
+/// <summary>Sends await continuations back to the UI thread through the window message queue.</summary>
+sealed class UiContext : SynchronizationContext
+{
+    public override void Post(SendOrPostCallback d, object? state) => App.Post(() => d(state));
+    public override void Send(SendOrPostCallback d, object? state) => d(state);
+    public override SynchronizationContext CreateCopy() => this;
 }

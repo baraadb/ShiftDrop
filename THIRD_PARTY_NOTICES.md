@@ -8,6 +8,9 @@ next to it. They run as separate programs or libraries and keep their own licenc
 | FFmpeg and FFprobe (LGPL build by BtbN) | images, video, audio | LGPL 2.1 or later | https://github.com/BtbN/FFmpeg-Builds · https://ffmpeg.org |
 | PDFium (build by bblanchon) | reading, rendering, merging PDF | BSD 3-Clause / Apache 2.0 | https://github.com/bblanchon/pdfium-binaries · https://pdfium.googlesource.com/pdfium |
 | .NET runtime | runs ShiftDrop | MIT | https://github.com/dotnet/runtime |
+| ONNX Runtime (Microsoft) | background removal | MIT | https://github.com/microsoft/onnxruntime |
+| U²-Net "silueta" model (Xuebin Qin et al., packaged by rembg) | background removal | Apache 2.0 (model) · MIT (rembg) | https://github.com/xuebinqin/U-2-Net · https://github.com/danielgatis/rembg |
+| C#/WinRT and the Windows SDK projection | the Windows share sheet | MIT | https://github.com/microsoft/CsWinRT |
 
 FFmpeg is used as an unmodified separate executable. Its exact build and source
 are named in `tools/ffmpeg-build.txt`, written by the installer.

@@ -88,6 +88,112 @@ public static class MediaOps
         await Picture(c, c.Input, c.Out($"{c.Base}-clean.{target}"), target, null, false, stripMeta: true);
     }
 
+    /// <summary>Decodes a picture to RGBA, upright, with its real size.</summary>
+    public static async Task<(byte[] Rgba, int Width, int Height)> DecodeRgba(FFmpeg ff, string input, string tempPng, CancellationToken ct, string? filter = null)
+    {
+        var args = new List<string> { "-i", input, "-frames:v", "1", "-update", "1" };
+        if (filter != null) args.AddRange(["-vf", filter]);
+        args.AddRange(["-c:v", "png", "-pix_fmt", "rgba", tempPng]);
+        await ff.RunAsync(args, 0, null, ct);
+        var info = await ff.InfoAsync(tempPng, ct);
+        var rgba = await ff.RunToBytesAsync(["-i", tempPng, "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgba", "-"], ct);
+        if (info.Width <= 0 || rgba.Length != info.Width * info.Height * 4)
+            throw new EngineException(L.T("Could not read the picture ", "تعذّرت قراءة الصورة ") + Path.GetFileName(input));
+        return (rgba, info.Width, info.Height);
+    }
+
+    /// <summary>Crops to "x,y,w,h" (pixels of the upright picture), keeping the format.</summary>
+    public static Task ImageCrop(OpContext c)
+    {
+        var parts = c.Opt("crop").Split(',');
+        if (parts.Length != 4 || !parts.All(p => int.TryParse(p, NumberStyles.Integer, CultureInfo.InvariantCulture, out _)))
+            throw new EngineException(L.T("No crop area was chosen", "لم يُحدَّد جزء للقص"));
+        var v = parts.Select(p => int.Parse(p, CultureInfo.InvariantCulture)).ToArray();
+        int x = Math.Max(0, v[0]), y = Math.Max(0, v[1]), w = Math.Max(1, v[2]), h = Math.Max(1, v[3]);
+        var ext = SameOrJpg(c.Input);
+        // avif and some encoders want even sizes
+        if (ext == "avif") { w = Math.Max(2, w & ~1); h = Math.Max(2, h & ~1); }
+        return Picture(c, c.Input, c.Out($"{c.Base}-cropped.{ext}"), ext, $"crop={w}:{h}:{x}:{y}", false);
+    }
+
+    public const string BackgroundModel = "silueta.onnx";
+    static Onnx.Session? _bgSession;
+    static readonly object BgGate = new();
+
+    public static bool BackgroundAvailable => Onnx.FindFile(BackgroundModel) != null && Onnx.Available;
+
+    static Onnx.Session BgSession()
+    {
+        lock (BgGate)
+            return _bgSession ??= new Onnx.Session(Onnx.FindFile(BackgroundModel)
+                ?? throw new EngineException(L.T("The background model is missing", "نموذج إزالة الخلفية غير موجود")));
+    }
+
+    /// <summary>Cuts the subject out with the U²-Net (silueta) model and saves a transparent PNG.</summary>
+    public static async Task RemoveBackground(OpContext c)
+    {
+        var ff = c.Services.FFmpeg;
+        const int S = 320;
+        var (rgba, w, h) = await DecodeRgba(ff, c.Input, c.Temp("src.png"), c.Token);
+        c.Progress.Report(0.15);
+        var small = await ff.RunToBytesAsync(["-i", c.Temp("src.png"), "-vf", $"scale={S}:{S}:flags=bicubic",
+            "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], c.Token);
+        if (small.Length != S * S * 3) throw new EngineException("Could not scale the picture");
+        File.Delete(c.Temp("src.png"));
+        c.Progress.Report(0.25);
+
+        var mask = await Task.Run(() => Mask(small, S), c.Token);
+        c.Progress.Report(0.85);
+        c.Token.ThrowIfCancellationRequested();
+
+        // stretch the 320×320 mask back to the picture (bilinear) and use it as alpha
+        var output = new byte[rgba.Length];
+        Buffer.BlockCopy(rgba, 0, output, 0, rgba.Length);
+        float sx = (float)S / w, sy = (float)S / h;
+        Parallel.For(0, h, new ParallelOptions { CancellationToken = c.Token }, yy =>
+        {
+            float fy = Math.Clamp((yy + 0.5f) * sy - 0.5f, 0, S - 1);
+            int y0 = (int)fy, y1 = Math.Min(S - 1, y0 + 1);
+            float ty = fy - y0;
+            for (int xx = 0; xx < w; xx++)
+            {
+                float fx = Math.Clamp((xx + 0.5f) * sx - 0.5f, 0, S - 1);
+                int x0 = (int)fx, x1 = Math.Min(S - 1, x0 + 1);
+                float tx = fx - x0;
+                float m = (mask[y0 * S + x0] * (1 - tx) + mask[y0 * S + x1] * tx) * (1 - ty)
+                        + (mask[y1 * S + x0] * (1 - tx) + mask[y1 * S + x1] * tx) * ty;
+                int i = (yy * w + xx) * 4 + 3;
+                output[i] = (byte)Math.Clamp(m * rgba[i] + 0.5f, 0, 255);
+            }
+        });
+
+        var outPath = c.Out($"{c.Base}-no-background.png");
+        await ff.RunAsync(["-f", "rawvideo", "-pix_fmt", "rgba", "-s", $"{w}x{h}", "-i", "-",
+            "-frames:v", "1", "-c:v", "png", "-compression_level", "6", outPath], 0, null, c.Token,
+            async stdin => await stdin.WriteAsync(output, c.Token));
+    }
+
+    /// <summary>Runs the model on an RGB picture of S×S and returns a 0..1 mask.</summary>
+    static float[] Mask(byte[] rgb, int s)
+    {
+        ReadOnlySpan<float> mean = [0.485f, 0.456f, 0.406f], std = [0.229f, 0.224f, 0.225f];
+        int n = s * s;
+        float max = 1;
+        foreach (var b in rgb) if (b > max) max = b;
+        var input = new float[3 * n];
+        for (int i = 0; i < n; i++)
+            for (int ch = 0; ch < 3; ch++)
+                input[ch * n + i] = (rgb[i * 3 + ch] / max - mean[ch]) / std[ch];
+        var (data, _) = BgSession().Run(input, [1, 3, s, s]);
+        if (data.Length < n) throw new EngineException("Unexpected model output");
+        float lo = float.MaxValue, hi = float.MinValue;
+        for (int i = 0; i < n; i++) { lo = Math.Min(lo, data[i]); hi = Math.Max(hi, data[i]); }
+        var mask = new float[n];
+        float range = Math.Max(1e-6f, hi - lo);
+        for (int i = 0; i < n; i++) mask[i] = (data[i] - lo) / range;
+        return mask;
+    }
+
     /// <summary>One PDF page per picture, in the order given.</summary>
     public static async Task ImagesToPdf(OpContext c, IReadOnlyList<string> inputs, string output)
     {

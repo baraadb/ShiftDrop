@@ -120,8 +120,8 @@ public sealed partial class SettingsWindow : Window
         Label(right, yR, colW, P(22), L.T($"ShiftDrop {AppInfo.VersionText} · free and open source (MIT)",
             $"ShiftDrop {AppInfo.VersionText} · مجاني ومفتوح المصدر (MIT)"));
         yR += P(24);
-        Label(right, yR, colW, P(40), L.T("Uses FFmpeg (LGPL) and PDFium (BSD). Your files never leave this PC.",
-            "يستخدم FFmpeg (LGPL) وPDFium (BSD). ملفاتك لا تغادر جهازك."), muted: true);
+        Label(right, yR, colW, P(40), L.T("Uses FFmpeg (LGPL), PDFium (BSD) and ONNX Runtime (MIT). Your files never leave this PC.",
+            "يستخدم FFmpeg (LGPL) وPDFium (BSD) وONNX Runtime (MIT). ملفاتك لا تغادر جهازك."), muted: true);
         yR += P(44);
         int bw = (colW - P(16)) / 3;
         Button(right, yR, bw, L.T("How to use", "طريقة الاستخدام"), () => _app.ShowTip(15));
@@ -130,10 +130,12 @@ public sealed partial class SettingsWindow : Window
             App.OpenText(Path.Combine(AppContext.BaseDirectory, "THIRD_PARTY_NOTICES.md")));
         yR += P(40);
         if (AppInfo.Website != null)
-        {
             Button(right, yR, bw * 2 + P(8), L.T("Website and source code", "الموقع والكود المصدري"), () => Updater.OpenPage(AppInfo.Website));
-            yR += P(40);
-        }
+        Button(right + (bw + P(8)) * 2, yR, bw, L.T("Support ♥", "ادعم المطور ♥"), () => Updater.OpenPage(AppInfo.Donate));
+        yR += P(40);
+        Label(right, yR, colW, P(40), L.T("ShiftDrop is free. If it saves you time, you can support its development (optional).",
+            "ShiftDrop مجاني. إذا وفّر عليك وقتًا، يمكنك دعم تطويره (اختياري)."), muted: true);
+        yR += P(42);
 
         // ---------------- bottom row ----------------
         int bottom = Math.Max(yL, yR) + P(12);

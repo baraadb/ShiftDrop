@@ -74,6 +74,13 @@ public static class Catalog
         Convert("arc", "tgz", [FileKind.Archive], c => DocOps.ArchiveTo(c, "tgz"), Needs.None);
 
         // ---- tools: images ----
+        All.Add(new Operation
+        {
+            Id = "img.crop", Group = OpGroup.Tool, En = "Crop", Ar = "قص الصورة", Kinds = [FileKind.Image],
+            Run = MediaOps.ImageCrop, Needs = Needs.FFmpeg, MaxInputs = 1, Editor = "crop",
+        });
+        Tool("img.nobg", "Remove background", "إزالة الخلفية", [FileKind.Image], MediaOps.RemoveBackground,
+            Needs.FFmpeg | Needs.Background, heavy: true);
         Tool("img.compress", "Compress", "ضغط", [FileKind.Image], c => MediaOps.ImageTool(c, "compressed", null, true));
         Tool("img.half", "Half size", "نصف الحجم", [FileKind.Image], c => MediaOps.ImageTool(c, "half", "scale=trunc(iw/2):trunc(ih/2)", false));
         Tool("img.rotate", "Rotate", "تدوير", [FileKind.Image], c => MediaOps.ImageTool(c, "rotated", "transpose=1", false));

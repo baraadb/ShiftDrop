@@ -12,6 +12,8 @@ public static class AppInfo
     public const string Repo = "baraadb/ShiftDrop";
     public static Version Version => typeof(AppInfo).Assembly.GetName().Version ?? new Version(0, 1, 0);
     public static string VersionText => Version.ToString(3);
+    /// <summary>ShiftDrop is free; this is the optional way to say thanks.</summary>
+    public const string Donate = "https://www.paypal.com/donate/?hosted_button_id=ZNRBHF6SX8ZH6";
     public static string? Website => Repo.Length > 0 ? $"https://github.com/{Repo}" : null;
 }
 

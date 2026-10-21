@@ -5,7 +5,7 @@ namespace ShiftDrop.Core;
 public enum OpGroup { Convert, Tool, Action }
 
 [Flags]
-public enum Needs { None = 0, FFmpeg = 1, Pdfium = 2, DocRenderer = 4 }
+public enum Needs { None = 0, FFmpeg = 1, Pdfium = 2, DocRenderer = 4, Background = 8 }
 
 /// <summary>A value a tool asks for before it runs (trim times, page ranges...).</summary>
 public sealed record InputField(string Key, string En, string Ar, string Default)
@@ -23,7 +23,8 @@ public sealed class Services
     public bool Has(Needs n) =>
         (!n.HasFlag(Needs.FFmpeg) || FFmpeg.Available) &&
         (!n.HasFlag(Needs.Pdfium) || Pdfium.Available) &&
-        (!n.HasFlag(Needs.DocRenderer) || DocRenderer != null);
+        (!n.HasFlag(Needs.DocRenderer) || DocRenderer != null) &&
+        (!n.HasFlag(Needs.Background) || Ops.MediaOps.BackgroundAvailable);
 }
 
 public sealed class OpContext
@@ -75,6 +76,8 @@ public sealed class Operation
     public InputField[]? Fields { get; init; }
     /// <summary>Runs immediately on the UI thread, no job card (copy path, open terminal).</summary>
     public Action<IReadOnlyList<string>>? Immediate { get; init; }
+    /// <summary>The app opens this editor first and passes what it returns as options ("crop").</summary>
+    public string? Editor { get; init; }
 
     public string Label => L.T(En, Ar);
 
