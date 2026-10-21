@@ -97,11 +97,13 @@ public sealed class Settings
     {
         get
         {
+            if (Packaged.IsPackaged) return Packaged.StartupEnabled;
             try { using var k = Registry.CurrentUser.OpenSubKey(RunKey); return k?.GetValue("ShiftDrop") != null; }
             catch { return false; }
         }
         set
         {
+            if (Packaged.IsPackaged) { Packaged.SetStartup(value); return; }
             try
             {
                 using var k = Registry.CurrentUser.CreateSubKey(RunKey);

@@ -21,6 +21,7 @@ public sealed partial class App : Window
     public const nint CopyFiles = 1, CopyShowTip = 2, CopyQuit = 3;
 
     static App? _instance;
+    public static App? Current => _instance;
     static readonly ConcurrentQueue<Action> Pending = new();
 
     public Settings Settings { get; private set; }
@@ -109,6 +110,7 @@ public sealed partial class App : Window
         {
             try { if (PrintPdfRenderer.Available()) services.DocRenderer = new PrintPdfRenderer(); } catch (Exception e) { Log.Write("printer: " + e.Message); }
             bool pdf = Pdfium.Available;
+            if (Packaged.IsPackaged) Packaged.RefreshStartupAsync().GetAwaiter().GetResult();
             // loads ONNX Runtime once now, so the first image wheel doesn't wait for it
             Log.Write("background removal: " + (MediaOps.BackgroundAvailable ? "ready" : "not available"));
             Post(() => app.StartupNotes(pdf));

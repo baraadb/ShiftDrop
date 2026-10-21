@@ -32,11 +32,14 @@ public static class Updater
         return h;
     }
 
-    public static bool Configured => AppInfo.Repo.Length > 0;
+    /// <summary>The Store version is updated by the Store, never by ShiftDrop itself.</summary>
+    public static bool Configured => AppInfo.Repo.Length > 0 && !Packaged.IsPackaged;
 
     /// <summary>The latest release if it is newer than this copy, otherwise null.</summary>
     public static async Task<UpdateInfo?> CheckAsync(CancellationToken ct = default)
     {
+        if (Packaged.IsPackaged) throw new InvalidOperationException(L.T("The Microsoft Store keeps ShiftDrop up to date.",
+            "متجر مايكروسوفت يحدّث ShiftDrop تلقائيًا."));
         if (!Configured) throw new InvalidOperationException(L.T("Updates start working once ShiftDrop is published on GitHub.",
             "التحديثات تعمل بعد نشر ShiftDrop على GitHub."));
         using var resp = await Http.GetAsync($"https://api.github.com/repos/{AppInfo.Repo}/releases/latest", ct);

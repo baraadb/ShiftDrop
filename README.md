@@ -37,7 +37,7 @@ It is free, open source, and everything happens **on your PC**.
 - **PDF and documents:** PDF to pictures or text or Word, merge, split, extract pages; Word, Markdown and text to PDF with proper Arabic.
 - **Share in one move.** Drop on *Share* to open the Windows share sheet (Nearby sharing, Mail, Teams, WhatsApp…).
 - **Safe by design.** Your original is never touched, nothing is ever overwritten, and a cancelled or failed job leaves nothing behind.
-- **Private.** No account, no telemetry, no upload. It works without internet.
+- **Private.** No account, no telemetry, no upload. It works without internet. ([Privacy policy](PRIVACY.md))
 - **Light and fast.** Native Win32 and GDI+, no Electron. English and Arabic, light and dark.
 
 ## Screenshots
@@ -62,6 +62,8 @@ It is free, open source, and everything happens **on your PC**.
 3. ShiftDrop starts and sits in the tray next to the clock. That's it.
 
 The installer contains everything (the app, the .NET runtime, FFmpeg, PDFium and the background-removal model), so it also works on a PC without internet. ShiftDrop checks GitHub for updates once a day and installs them with one click; you can turn that off in Settings.
+
+See the [code signing policy](#code-signing-policy).
 
 > **Windows SmartScreen** may say *"Windows protected your PC"* because the installer is new and not code-signed. Click **More info → Run anyway**. The full source and the build that produced the installer are public in this repository.
 
@@ -179,6 +181,16 @@ dotnet build src/ShiftDrop -p:AppTfm=net10.0       # compile check on Linux or m
 | `installer` | Build-and-install script, Inno Setup script, uninstaller |
 
 Every push to `main` is built and tested on Windows by GitHub Actions; a new version number publishes a release with the installer.
+
+## Code signing policy
+
+Windows releases will be signed through free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org). *(Application in progress; until it is approved the installer is unsigned.)*
+
+- Only files built by GitHub Actions from this repository's source are signed. Each signing request is approved by hand.
+- **Team:** [@baraadb](https://github.com/baraadb) is the author, reviewer and approver. Changes from other people are reviewed before they are merged.
+- **Privacy:** ShiftDrop doesn't collect or send any personal data. See the [privacy policy](PRIVACY.md).
+
+The Microsoft Store version is signed by Microsoft.
 
 ## Credits
 

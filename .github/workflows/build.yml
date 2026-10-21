@@ -48,12 +48,9 @@ jobs:
           & $iscc "/DAppVersion=$v" installer/ShiftDrop.iss
           if (-not (Test-Path "build/ShiftDrop-Setup-$v.exe")) { throw 'Setup.exe was not produced' }
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ShiftDrop-win-x64
-          path: |
-            build/ShiftDrop-*-win-x64.zip
-            build/ShiftDrop-Setup-*.exe
+      - name: Store package (MSIX)
+        shell: pwsh
+        run: ./installer/Build-Msix.ps1
 
       # A push to main with a version number that has no release yet publishes one.
       # (Bump <Version> in Directory.Build.props to release.)
@@ -71,6 +68,53 @@ jobs:
           "new=$new" >> $env:GITHUB_OUTPUT
           Write-Host "version $v, new release: $new"
           $global:LASTEXITCODE = 0   # "release not found" is the expected answer for a new version
+
+      # Code signing: free for open source from SignPath Foundation. It switches on by itself once the
+      # SIGNPATH_ORGANIZATION_ID variable and the SIGNPATH_API_TOKEN secret exist (repo Settings > Secrets and variables).
+      # Only new releases are signed; each request waits for the approver to accept it on signpath.io.
+      - name: Upload the unsigned installer for signing
+        id: unsigned
+        if: steps.version.outputs.new == 'true' && vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-setup
+          path: build/ShiftDrop-Setup-*.exe
+
+      - name: Sign (SignPath)
+        if: steps.unsigned.outcome == 'success'
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'ShiftDrop' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG || 'release-signing' }}
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: build/signed
+
+      - name: Use the signed installer
+        if: steps.unsigned.outcome == 'success'
+        shell: pwsh
+        run: |
+          Get-ChildItem build/signed -Recurse -Filter 'ShiftDrop-Setup-*.exe' | Copy-Item -Destination build -Force
+          $setup = Get-ChildItem build/ShiftDrop-Setup-*.exe | Select-Object -First 1
+          $sig = Get-AuthenticodeSignature $setup.FullName
+          Write-Host "signature: $($sig.Status) · $($sig.SignerCertificate.Subject)"
+          if ($sig.Status -ne 'Valid') { throw 'The installer came back unsigned' }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ShiftDrop-win-x64
+          path: |
+            build/ShiftDrop-*-win-x64.zip
+            build/ShiftDrop-Setup-*.exe
+
+      # for Partner Center: download from the run's artifacts and upload to the Store
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ShiftDrop-Store-msix
+          path: build/ShiftDrop-*.msix
 
       - name: Release notes
         if: steps.version.outputs.new == 'true' || startsWith(github.ref, 'refs/tags/v')
@@ -91,6 +135,8 @@ jobs:
             $notes
             ''
             'ShiftDrop is free. If it helps you, you can [support the developer](https://www.paypal.com/donate/?hosted_button_id=ZNRBHF6SX8ZH6) ♥'
+            ''
+            '[Code signing policy](https://github.com/baraadb/ShiftDrop#code-signing-policy) · [Privacy](https://github.com/baraadb/ShiftDrop/blob/main/PRIVACY.md)'
           ) -join "`n"
           Set-Content -Path build/notes.md -Value $body -Encoding UTF8
 
