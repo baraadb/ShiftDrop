@@ -1,0 +1,6 @@
+bin/
+obj/
+build/
+installer/cache/
+*.user
+.vs/
