@@ -73,6 +73,7 @@ foreach ($name in $tests.Keys) {
     for ($r = 0; $r -lt $Runs; $r++) { $o += Time $eOld $t; $n += Time $eNew $t }
     if ($o -contains $null -or $n -contains $null) {
         $rows += "| $name | $(if ($o -contains $null) {'fails'} else {'ok'}) | $(if ($n -contains $null) {'fails'} else {'ok'}) | — |"
+        if ($env:GITHUB_ACTIONS) { Write-Host "::notice title=bench::$name - old: $(if ($o -contains $null) {'fails'} else {'ok'}), new: $(if ($n -contains $null) {'fails'} else {'ok'})" }
         if (($n -contains $null) -and -not ($o -contains $null)) { $script:broken = $true; Write-Host "!! $name works on the old build but not the new one" }
         continue
     }
@@ -80,7 +81,9 @@ foreach ($name in $tests.Keys) {
     $sumOld += $mo; $sumNew += $mn
     $pct = ($mn - $mo) / $mo * 100
     $rows += "| $name | $([Math]::Round($mo)) ms | $([Math]::Round($mn)) ms | $('{0:+0.0;-0.0}' -f $pct)% |"
-    Write-Host ("{0,-40} old {1,7:0} ms   new {2,7:0} ms   {3,6:+0.0;-0.0}%" -f $name, $mo, $mn, $pct)
+    $line = "{0,-40} old {1,7:0} ms   new {2,7:0} ms   {3,6:+0.0;-0.0}%" -f $name, $mo, $mn, $pct
+    Write-Host $line
+    if ($env:GITHUB_ACTIONS) { Write-Host "::notice title=bench::$line" }
 }
 
 function Size($dir) { (Get-ChildItem $dir -File | Where-Object { $_.Name -match '\.(exe|dll)$' -and $_.Name -ne 'ffplay.exe' } | Measure-Object Length -Sum).Sum / 1MB }
@@ -94,6 +97,7 @@ $md = @(
 New-Item -ItemType Directory -Force (Split-Path $Out) | Out-Null
 $md -join "`n" | Set-Content -Encoding UTF8 $Out
 Get-Content $Out | Write-Host
+if ($env:GITHUB_ACTIONS) { Write-Host "::notice title=bench total::size $([Math]::Round((Size $Old),1)) MB -> $([Math]::Round((Size $New),1)) MB, time $([Math]::Round($sumOld/1000,1)) s -> $([Math]::Round($sumNew/1000,1)) s ($('{0:+0.0;-0.0}' -f $total)%)" }
 Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue
 
 if ($script:broken) { throw 'Some work fails with the new build' }
