@@ -384,7 +384,11 @@ public static partial class SoundPreview
         _pinned = GCHandle.Alloc(wav, GCHandleType.Pinned);
         Length = seconds;
         _startedAt = Environment.TickCount64;
-        PlaySoundW(_pinned.AddrOfPinnedObject(), IntPtr.Zero, 0x0004 /*SND_MEMORY*/ | 0x0001 /*SND_ASYNC*/ | 0x0002 /*SND_NODEFAULT*/);
+        if (PlaySoundW(_pinned.AddrOfPinnedObject(), IntPtr.Zero, 0x0004 /*SND_MEMORY*/ | 0x0001 /*SND_ASYNC*/ | 0x0002 /*SND_NODEFAULT*/) == 0)
+        {
+            Log.Write($"sound preview: Windows could not play {wav.Length} bytes");
+            Stop();
+        }
     }
 
     public static void Stop()

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1
+
+- **Play selection works**: the trim editor and the audio channels editor now play the sound. Windows was refusing the preview because its size was missing.
+- **The video moves while it plays**: in the video trim editor, the picture follows the playhead, and goes back to the chosen end when playback stops.
+- Video frames in the editors load faster (the video size is read once).
+
 ## 0.5.0
 
 - **Trim on a timeline.** Trimming audio or video now opens an editor: the waveform (and, for videos, a strip of frames and a big picture of the frame at the end you're moving). Drag the two ends or the whole selection, play the selected part, or let ShiftDrop cut the quiet ends for you. Arrow keys nudge an end, Tab switches ends, Space plays.

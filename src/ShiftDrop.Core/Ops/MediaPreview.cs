@@ -41,11 +41,18 @@ public static class MediaPreview
         return peaks;
     }
 
+    static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (int, int)> _sizes = new();
+
     /// <summary>One video frame at a time, scaled to fit, as BGRA pixels.</summary>
     public static async Task<(byte[] Bgra, int Width, int Height)> Frame(FFmpeg ff, string path, double seconds, int maxW, int maxH, CancellationToken ct)
     {
-        var info = await ff.InfoAsync(path, ct);
-        int vw = info.Width > 0 ? info.Width : 16, vh = info.Height > 0 ? info.Height : 9;
+        if (!_sizes.TryGetValue(path, out var size))
+        {
+            var info = await ff.InfoAsync(path, ct);
+            size = (info.Width > 0 ? info.Width : 16, info.Height > 0 ? info.Height : 9);
+            _sizes[path] = size;
+        }
+        var (vw, vh) = size;
         // the probe can report a rotated video sideways; ffmpeg turns it upright when decoding
         var (w, h) = Fit(vw, vh, maxW, maxH);
         var bytes = await ff.RunToBytesAsync(["-ss", Inv(Math.Max(0, seconds)), "-i", path, "-frames:v", "1",
@@ -74,12 +81,35 @@ public static class MediaPreview
     }
 
     /// <summary>A short WAV of part of the file (for "play selection"), with an optional audio filter.</summary>
-    public static Task<byte[]> Wav(FFmpeg ff, string path, double start, double length, string? filter, CancellationToken ct)
+    public static async Task<byte[]> Wav(FFmpeg ff, string path, double start, double length, string? filter, CancellationToken ct)
     {
         var args = new List<string> { "-ss", Inv(Math.Max(0, start)), "-t", Inv(Math.Clamp(length, 0.05, 600)), "-i", path, "-map", "0:a:0", "-vn" };
         if (!string.IsNullOrEmpty(filter)) args.AddRange(["-af", filter]);
-        args.AddRange(["-ar", "44100", "-ac", "2", "-c:a", "pcm_s16le", "-f", "wav", "-"]);
-        return ff.RunToBytesAsync(args, ct);
+        args.AddRange(["-map_metadata", "-1", "-ar", "44100", "-ac", "2", "-c:a", "pcm_s16le", "-f", "wav", "-"]);
+        return FixWavSizes(await ff.RunToBytesAsync(args, ct));
+    }
+
+    /// <summary>
+    /// ffmpeg writing to a pipe can't go back to fill in the sizes, so it leaves them as FFFFFFFF;
+    /// Windows refuses to play such a WAV from memory. Writes the real sizes in.
+    /// </summary>
+    public static byte[] FixWavSizes(byte[] wav)
+    {
+        if (wav.Length < 12 || wav[0] != 'R' || wav[1] != 'I' || wav[2] != 'F' || wav[3] != 'F') return wav;
+        BitConverter.TryWriteBytes(wav.AsSpan(4, 4), (uint)(wav.Length - 8));
+        int pos = 12;
+        while (pos + 8 <= wav.Length)
+        {
+            bool data = wav[pos] == 'd' && wav[pos + 1] == 'a' && wav[pos + 2] == 't' && wav[pos + 3] == 'a';
+            if (data)
+            {
+                BitConverter.TryWriteBytes(wav.AsSpan(pos + 4, 4), (uint)(wav.Length - pos - 8));
+                break;
+            }
+            uint size = BitConverter.ToUInt32(wav, pos + 4);
+            pos += 8 + (int)Math.Min(size + (size & 1), (uint)wav.Length);
+        }
+        return wav;
     }
 
     /// <summary>Where the sound starts and stops (quiet ends cut off), from the peaks.</summary>

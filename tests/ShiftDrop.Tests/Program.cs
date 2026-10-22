@@ -560,6 +560,12 @@ await T("waveform peaks and quiet ends", async () =>
     Assert(left.Max() > 0.05, "left channel " + left.Max());
     var w = await ShiftDrop.Core.Ops.MediaPreview.Wav(ff, p, 1, 0.5, null, default);
     Assert(w.Length > 44 && w[0] == 'R' && w[8] == 'W', "wav");
+    // Windows only plays a WAV from memory when its sizes are real (a pipe leaves FFFFFFFF)
+    Assert(BitConverter.ToUInt32(w, 4) == w.Length - 8, "riff size " + BitConverter.ToUInt32(w, 4));
+    int at = 12;
+    while (at + 8 <= w.Length && !(w[at] == 'd' && w[at + 1] == 'a' && w[at + 2] == 't' && w[at + 3] == 'a')) at += 8 + (int)BitConverter.ToUInt32(w, at + 4);
+    Assert(at + 8 <= w.Length && BitConverter.ToUInt32(w, at + 4) == w.Length - at - 8, "data size");
+    Assert(Math.Abs((w.Length - at - 8) / 176400.0 - 0.5) < 0.05, "length " + (w.Length - at - 8) / 176400.0);
 });
 await T("video frames, upright size, crop", async () =>
 {

@@ -320,7 +320,12 @@ public sealed class TrimWindow : EditorWindow
 
     async void TogglePlay()
     {
-        if (SoundPreview.Playing || _loadingWav) { SoundPreview.Stop(); StopTicking(); _loadingWav = false; Invalidate(); return; }
+        if (SoundPreview.Playing || _loadingWav)
+        {
+            SoundPreview.Stop(); StopTicking(); _loadingWav = false;
+            if (_video) RequestFocus(_active == 0 ? _start : _end);
+            Invalidate(); return;
+        }
         if (_load == null) return;
         _loadingWav = true;
         Invalidate();
@@ -339,7 +344,13 @@ public sealed class TrimWindow : EditorWindow
 
     protected override void Tick()
     {
-        if (!SoundPreview.Playing) StopTicking();
+        if (!SoundPreview.Playing)
+        {
+            StopTicking();
+            if (_video) RequestFocus(_active == 0 ? _start : _end);
+        }
+        // the picture follows the playhead (a new frame as soon as the last one is ready)
+        else if (_video) RequestFocus(Math.Min(_end, _start + SoundPreview.Position));
         Invalidate();
     }
 }
