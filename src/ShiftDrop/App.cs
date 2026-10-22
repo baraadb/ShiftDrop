@@ -79,7 +79,7 @@ public sealed partial class App : Window
 
         var tools = Path.Combine(appDir, "tools");
         Pdfium.SearchDirs.Add(tools);
-        var services = new Services { FFmpeg = FFmpeg.Locate(tools, appDir) };
+        var services = new Services { FFmpeg = FFmpeg.Locate(tools, appDir), ResvgPath = Svg.Locate(tools, appDir) };
         foreach (var sz in new[] {
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "7-Zip", "7z.exe"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "7-Zip", "7z.exe") })
@@ -204,8 +204,14 @@ public sealed partial class App : Window
         try
         {
             var ff = Services.FFmpeg;
-            var info = await ff.InfoAsync(file, CancellationToken.None);
-            var (rgba, pw, ph) = await MediaOps.DecodeRgba(ff, file, temp, CancellationToken.None,
+            var source = file;
+            if (Svg.IsSvg(file))
+            {
+                source = Path.ChangeExtension(temp, ".svg.png");
+                await Svg.RenderAsync(Services.ResvgPath, file, source, CancellationToken.None);
+            }
+            var info = await ff.InfoAsync(source, CancellationToken.None);
+            var (rgba, pw, ph) = await MediaOps.DecodeRgba(ff, source, temp, CancellationToken.None,
                 "scale=w='min(1600,iw)':h='min(1600,ih)':force_original_aspect_ratio=decrease");
             // the picture's upright size: the probe can report it sideways when EXIF rotates it
             int fw = info.Width, fh = info.Height;
@@ -221,7 +227,7 @@ public sealed partial class App : Window
             Log.Write("crop: " + e);
             Hud.Info(op.Label, e.Message, error: true);
         }
-        finally { try { File.Delete(temp); } catch { } }
+        finally { try { File.Delete(temp); File.Delete(Path.ChangeExtension(temp, ".svg.png")); } catch { } }
     }
 
     static string Inv(FormattableString s) => s.ToString(System.Globalization.CultureInfo.InvariantCulture);

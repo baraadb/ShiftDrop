@@ -18,7 +18,11 @@ $Publish   = Join-Path $Root 'build\publish'
 $InstallTo = Join-Path $env:LOCALAPPDATA 'Programs\ShiftDrop'
 $LogFile   = Join-Path $Root 'build\install.log'
 
-$FfmpegUrl = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip'
+# ShiftDrop's own FFmpeg and resvg (built by .github/workflows/tools.yml); installer\tools.txt names the release
+$ToolsTag  = (Get-Content (Join-Path $PSScriptRoot 'tools.txt') -Raw).Trim()
+$ToolsBase = "https://github.com/baraadb/ShiftDrop/releases/download/$ToolsTag"
+$FfmpegUrl = "$ToolsBase/ffmpeg-shiftdrop-win64.zip"
+$ResvgUrl  = "$ToolsBase/resvg-win64.zip"
 $PdfiumUrl = 'https://github.com/bblanchon/pdfium-binaries/releases/latest/download/pdfium-win-x64.tgz'
 
 New-Item -ItemType Directory -Force -Path $Cache, (Split-Path $LogFile) | Out-Null
@@ -96,23 +100,21 @@ function Download($url, $file) {
     return $path
 }
 
-Say 'Getting FFmpeg (LGPL build, about 180 MB, downloaded once)...' 'تنزيل FFmpeg (حوالي 180 ميغا، مرة واحدة)...'
+Say "Getting FFmpeg and resvg ($ToolsTag)..." 'تنزيل FFmpeg وresvg...'
 try {
-    $zip = Download $FfmpegUrl 'ffmpeg-win64-lgpl.zip'
-    $tmp = Join-Path $Cache 'ffmpeg-x'
-    if (Test-Path $tmp) { Remove-Item -Recurse -Force $tmp }
-    New-Item -ItemType Directory -Force -Path $tmp | Out-Null
-    & tar.exe -xf $zip -C $tmp
-    $bin = Get-ChildItem -Path $tmp -Recurse -Filter 'ffmpeg.exe' | Select-Object -First 1
-    if (-not $bin) { Expand-Archive -Path $zip -DestinationPath $tmp -Force -ErrorAction Stop; $bin = Get-ChildItem -Path $tmp -Recurse -Filter 'ffmpeg.exe' | Select-Object -First 1 }
-    if (-not $bin) { throw 'ffmpeg.exe not found in the download' }
-    Copy-Item (Join-Path $bin.DirectoryName 'ffmpeg.exe') $Tools -Force -ErrorAction Stop
-    Copy-Item (Join-Path $bin.DirectoryName 'ffprobe.exe') $Tools -Force -ErrorAction Stop
-    $version = (& (Join-Path $Tools 'ffmpeg.exe') -hide_banner -version | Select-Object -First 1)
-    "$version`r`nFrom: $FfmpegUrl`r`nDownloaded: $((Get-Item $zip).LastWriteTime)`r`nLicence: LGPL 2.1+. Source: https://github.com/BtbN/FFmpeg-Builds and https://ffmpeg.org" |
-        Set-Content -Encoding UTF8 (Join-Path $Tools 'ffmpeg-build.txt')
-    if (Test-Path (Join-Path $bin.DirectoryName '..\LICENSE.txt')) { Copy-Item (Join-Path $bin.DirectoryName '..\LICENSE.txt') (Join-Path $Tools 'FFMPEG-LICENSE.txt') -Force }
-    Remove-Item -Recurse -Force $tmp
+    foreach ($pair in @(@($FfmpegUrl, "ffmpeg-$ToolsTag.zip"), @($ResvgUrl, "resvg-$ToolsTag.zip"))) {
+        $zip = Download $pair[0] $pair[1]
+        $tmp = Join-Path $Cache 'tools-x'
+        if (Test-Path $tmp) { Remove-Item -Recurse -Force $tmp }
+        New-Item -ItemType Directory -Force -Path $tmp | Out-Null
+        Expand-Archive -Path $zip -DestinationPath $tmp -Force -ErrorAction Stop
+        Copy-Item (Join-Path $tmp '*') $Tools -Recurse -Force -ErrorAction Stop
+        Remove-Item -Recurse -Force $tmp
+    }
+    if (-not (Test-Path (Join-Path $Tools 'ffmpeg.exe'))) { throw 'ffmpeg.exe not found in the download' }
+    if (-not (Test-Path (Join-Path $Tools 'resvg.exe'))) { throw 'resvg.exe not found in the download' }
+    # left over from older versions (one big ffmpeg.exe each, and the old background model)
+    foreach ($old in 'onnxruntime.dll', 'silueta.onnx', 'ONNXRUNTIME-LICENSE.txt') { Remove-Item (Join-Path $Tools $old) -Force -ErrorAction SilentlyContinue }
 } catch {
     Fail "Could not get FFmpeg: $($_.Exception.Message)" 'تعذّر تنزيل FFmpeg. تأكد من الاتصال بالإنترنت وأعد المحاولة.'
 }

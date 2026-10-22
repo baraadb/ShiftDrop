@@ -1,0 +1,149 @@
+name: tools
+
+# ShiftDrop's own FFmpeg (and resvg for SVG). Built from pinned sources, compared with the previous
+# FFmpeg on Windows (speed and formats), then published as a pre-release named tools-YYYY.MM.DD.
+# The app installer downloads the release named in installer/tools.txt.
+# Once a month it rebuilds FFmpeg from its release branch (security fixes), and when the tests and the
+# speed check pass, moves the pin.
+
+on:
+  push:
+    branches: [main, 'wip/**']
+    paths: ['tools/ffmpeg/**', '.github/workflows/tools.yml']
+  schedule:
+    - cron: '17 3 2 * *'   # the 2nd of each month
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tools-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ffmpeg:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq mingw-w64 nasm meson ninja-build cmake pkg-config autoconf automake libtool zip >/dev/null
+
+      # the libraries change only when versions.env or the script do
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ffbuild/prefix
+            ffbuild/src/*.tar.gz
+          key: ffmpeg-libs-${{ hashFiles('tools/ffmpeg/versions.env', 'tools/ffmpeg/build.sh') }}
+
+      # the monthly rebuild follows FFmpeg's release branch, where security fixes land between point releases
+      - name: Build FFmpeg
+        env:
+          FFMPEG_FOLLOW_BRANCH: ${{ github.event_name == 'schedule' && '1' || '' }}
+        run: tools/ffmpeg/build.sh "$PWD/ffbuild"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg
+          path: ffbuild/out/ffmpeg-shiftdrop-win64.zip
+
+  resvg:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build resvg
+        shell: pwsh
+        run: |
+          $ResvgVersion = (Select-String -Path tools/ffmpeg/versions.env -Pattern '^RESVG_VERSION=(\S+)').Matches[0].Groups[1].Value
+          git -c advice.detachedHead=false clone -q --depth 1 --branch "v$ResvgVersion" https://github.com/linebender/resvg build/resvg
+          Push-Location build/resvg
+          $env:RUSTFLAGS = '-C target-feature=+crt-static'
+          cargo build --release --locked -p resvg
+          Pop-Location
+          New-Item -ItemType Directory -Force build/resvg-pkg | Out-Null
+          Copy-Item build/resvg/target/release/resvg.exe build/resvg-pkg/
+          Get-ChildItem build/resvg -Filter 'LICENSE*' | ForEach-Object { Copy-Item $_.FullName "build/resvg-pkg/RESVG-$($_.Name).txt" }
+          "resvg $ResvgVersion - https://github.com/linebender/resvg" | Set-Content build/resvg-pkg/resvg-build.txt
+          & build/resvg-pkg/resvg.exe --version
+          Compress-Archive -Path build/resvg-pkg/* -DestinationPath build/resvg-win64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: resvg
+          path: build/resvg-win64.zip
+
+  compare:
+    needs: [ffmpeg, resvg]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { path: build/artifacts }
+
+      - name: Unpack
+        shell: pwsh
+        run: |
+          Expand-Archive build/artifacts/ffmpeg/ffmpeg-shiftdrop-win64.zip build/new
+          Expand-Archive build/artifacts/resvg/resvg-win64.zip build/new
+          Invoke-WebRequest 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip' -OutFile build/old.zip
+          Expand-Archive build/old.zip build/old-x
+          New-Item -ItemType Directory build/old | Out-Null
+          Get-ChildItem build/old-x -Recurse -Include ffmpeg.exe, ffprobe.exe | Copy-Item -Destination build/old
+          & build/new/ffmpeg.exe -hide_banner -version | Select-Object -First 1
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # every engine test runs on the new build
+      - name: Tests with the new FFmpeg
+        shell: pwsh
+        run: |
+          Invoke-WebRequest 'https://github.com/bblanchon/pdfium-binaries/releases/latest/download/pdfium-win-x64.tgz' -OutFile build/pdfium.tgz
+          New-Item -ItemType Directory build/pdfium | Out-Null
+          tar -xzf build/pdfium.tgz -C build/pdfium
+          $env:SHIFTDROP_FFMPEG_DIR = "$PWD/build/new"
+          $env:SHIFTDROP_RESVG_DIR = "$PWD/build/new"
+          $env:SHIFTDROP_PDFIUM_DIR = "$PWD/build/pdfium/bin"
+          dotnet run --project tests/ShiftDrop.Tests -c Release
+          if ($LASTEXITCODE -ne 0) { throw 'tests failed' }
+
+      - name: Speed and size against the previous FFmpeg
+        shell: pwsh
+        run: |
+          ./tools/ffmpeg/bench.ps1 -Old build/old -New build/new -Runs 3
+          Get-Content build/bench.md | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bench
+          path: build/bench.md
+
+      - name: Publish (pre-release, never shown as an app update)
+        id: publish
+        if: github.event_name != 'pull_request'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "tools-$(Get-Date -Format 'yyyy.MM.dd')-$($env:GITHUB_RUN_NUMBER)"
+          $notes = "FFmpeg and resvg for ShiftDrop, built by tools/ffmpeg/build.sh from $env:GITHUB_SHA.`n`n" + (Get-Content build/bench.md -Raw)
+          $notes | Set-Content build/notes.md
+          gh release create $tag build/artifacts/ffmpeg/ffmpeg-shiftdrop-win64.zip build/artifacts/resvg/resvg-win64.zip `
+            --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title $tag --notes-file build/notes.md --prerelease --latest=false
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+
+      # the monthly rebuild moves the installer to the new tools by itself
+      - name: Point the installer at the new tools
+        if: github.event_name == 'schedule' && steps.publish.outputs.tag != ''
+        shell: pwsh
+        run: |
+          "${{ steps.publish.outputs.tag }}" | Set-Content -NoNewline installer/tools.txt
+          git config user.name 'ShiftDrop CI'; git config user.email 'ci@users.noreply.github.com'
+          git add installer/tools.txt
+          git commit -m "Tools: ${{ steps.publish.outputs.tag }} (monthly rebuild)"
+          git push origin HEAD:main

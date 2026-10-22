@@ -29,7 +29,7 @@ public static class FileKinds
         ["png"] = FileKind.Image, ["webp"] = FileKind.Image, ["heic"] = FileKind.Image,
         ["heif"] = FileKind.Image, ["avif"] = FileKind.Image, ["tif"] = FileKind.Image,
         ["tiff"] = FileKind.Image, ["bmp"] = FileKind.Image, ["ico"] = FileKind.Image,
-        ["svg"] = FileKind.Image, // input only (FFmpeg with librsvg)
+        ["svg"] = FileKind.Image, // input only (drawn by resvg)
         ["gif"] = FileKind.Gif,
         ["mp4"] = FileKind.Video, ["mov"] = FileKind.Video, ["mkv"] = FileKind.Video,
         ["webm"] = FileKind.Video, ["avi"] = FileKind.Video, ["wmv"] = FileKind.Video,
