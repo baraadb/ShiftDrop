@@ -33,9 +33,10 @@ It is free, open source, and everything happens **on your PC**.
 - **The wheel knows your file.** It only shows what makes sense for what you're holding: image formats for photos, video formats for clips, and so on.
 - **Many files at once.** Drag a whole selection; each file gets its own copy, or they are combined when that's the point (merge PDFs, join videos, pictures into one PDF).
 - **Images:** convert, crop, remove the background, compress, resize, rotate, strip location and camera data.
-- **Video and audio:** convert, trim, compress, mute, speed up, slow down, grab a frame, make a GIF, extract the sound.
-- **PDF and documents:** PDF to pictures or text or Word, merge, split, extract pages; Word, Markdown and text to PDF with proper Arabic.
-- **Share in one move.** Drop on *Share* to open the Windows share sheet (Nearby sharing, Mail, Teams, WhatsApp…).
+- **Video and audio:** convert, trim, split, compress, mute, speed up, slow down, grab a frame, make a GIF, extract the sound.
+- **PDF and documents:** PDF to pictures, text, Word, Excel, PowerPoint or EPUB; merge, split, extract pages; Word, RTF, HTML, Markdown and text to PDF or EPUB with proper Arabic.
+- **Spreadsheets without Office:** XLSX, ODS, CSV and TSV into each other, and to a clean PDF table.
+- **Share in one move.** Drop on *Share* to open the Windows share sheet (Nearby sharing, Mail, Teams, WhatsApp…), or on *Float* to keep the files in a little card on top of everything until you drag them somewhere.
 - **Safe by design.** Your original is never touched, nothing is ever overwritten, and a cancelled or failed job leaves nothing behind.
 - **Private.** No account, no telemetry, no upload. It works without internet. ([Privacy policy](PRIVACY.md))
 - **Light and fast.** Native Win32 and GDI+, no Electron. English and Arabic, light and dark.
@@ -45,13 +46,13 @@ It is free, open source, and everything happens **on your PC**.
 <table>
   <tr>
     <td align="center"><img src="docs/media/wheel-image.png" width="260" alt="Image formats"><br><sub><b>Shift</b> · formats for a picture</sub></td>
-    <td align="center"><img src="docs/media/wheel-tools.png" width="260" alt="Image tools"><br><sub><b>Ctrl</b> · tools</sub></td>
+    <td align="center"><img src="docs/media/wheel-tools.png" width="260" alt="Image tools"><br><sub><b>Ctrl</b> · tools (dark)</sub></td>
     <td align="center"><img src="docs/media/wheel-actions.png" width="260" alt="Actions"><br><sub><b>Alt</b> · actions for any file</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/media/wheel-video.png" width="260" alt="Video formats"><br><sub>A video</sub></td>
-    <td align="center"><img src="docs/media/wheel-audio.png" width="260" alt="Audio formats"><br><sub>An audio file</sub></td>
-    <td align="center"><img src="assets/shiftdrop-256.png" width="150" alt="ShiftDrop icon"><br><sub>Lives quietly next to the clock</sub></td>
+    <td align="center"><img src="docs/media/wheel-video.png" width="260" alt="Video formats"><br><sub>A video, hovering WMV</sub></td>
+    <td align="center"><img src="docs/media/wheel-arabic.png" width="260" alt="PDF tools in Arabic"><br><sub>PDF tools, in Arabic</sub></td>
+    <td align="center"><img src="docs/media/float.png" width="260" alt="Float card"><br><sub><b>Float</b> · files on top, ready to drag</sub></td>
   </tr>
 </table>
 
@@ -86,17 +87,18 @@ Once the wheel is open you can let go of the keys. The keys themselves can be ch
 
 | Files | Convert to | Tools |
 | --- | --- | --- |
-| **Images** — JPG, PNG, WebP, HEIC, AVIF, TIFF, BMP, ICO, SVG | JPG, PNG, WebP, AVIF, TIFF, BMP, ICO, PDF | Crop, remove background, compress, half size, rotate, black & white, remove metadata, many pictures → one PDF |
+| **Images** — JPG, PNG, WebP, HEIC, AVIF, TIFF, BMP, ICO, SVG | JPG, PNG, WebP, AVIF, TIFF, BMP, ICO, PDF | Crop, remove background, compress, half size, rotate, black & white, remove metadata, many pictures → one PDF, pictures → slides (PPTX) |
 | **GIF** | MP4, MOV, WebM, PNG, JPG, WebP | |
-| **Video** — MP4, MOV, MKV, WebM, AVI, WMV… | MP4, MOV, MKV, WebM, AVI, WMV, GIF, MP3, M4A | Compress, trim, remove sound, speed ×2, slow ×½, rotate, snapshot, remove metadata, join |
-| **Audio** — MP3, M4A, WAV, FLAC, OGG, Opus, AIFF, WMA | any of these | Compress, trim, normalize, mono, remove metadata |
-| **PDF** | JPG, PNG (300 DPI), TXT, DOCX, MD, HTML | Merge, split pages, extract pages, rotate |
-| **Documents** — DOCX, MD, TXT | PDF, DOCX, MD, HTML, TXT | |
+| **Video** — MP4, MOV, MKV, WebM, AVI, WMV… | MP4, MOV, MKV, WebM, AVI, WMV, GIF, MP3, M4A | Compress, trim, split, remove sound, speed ×2, slow ×½, rotate, snapshot, remove metadata, join |
+| **Audio** — MP3, M4A, WAV, FLAC, OGG, Opus, AIFF, WMA | any of these | Compress, trim, split, normalize, mono, remove metadata |
+| **PDF** | JPG, PNG (300 DPI), TXT, DOCX, XLSX, PPTX, EPUB, MD, HTML | Merge, split pages, extract pages, rotate |
+| **Documents** — DOCX, RTF, HTML, EPUB, MD, TXT | PDF, DOCX, EPUB, MD, HTML, TXT | |
+| **Spreadsheets** — XLSX, ODS, CSV, TSV | XLSX, ODS, CSV, TSV, PDF, HTML | |
 | **Subtitles** — SRT, VTT | SRT, VTT, TXT | Shift timing |
 | **Archives** — ZIP, TAR, TAR.GZ, GZ (7z and RAR with 7-Zip installed) | ZIP, TAR, TAR.GZ | Extract |
-| **Anything** (files and folders) | | Copy path, terminal here, share, copy to, move to, properties, ZIP |
+| **Anything** (files and folders) | | Copy path, terminal here, share, copy to, move to, float, properties, ZIP |
 
-Documents become PDF through Windows' own *Microsoft Print to PDF*, so text stays real, selectable text (Arabic included). Microsoft Office is not needed.
+Documents and spreadsheets become PDF through Windows' own *Microsoft Print to PDF*, so text stays real, selectable text (Arabic included). Microsoft Office is not needed. PDF → Excel rebuilds tables from where the text sits on the page: great for invoices and statements made by programs; scanned pages have no text to read.
 
 ## Settings
 
@@ -223,9 +225,10 @@ Licence: [MIT](LICENSE).
 - **العجلة تعرف ملفك:** تعرض فقط ما يناسبه؛ صيغ صور للصور، وصيغ فيديو للفيديو، وهكذا.
 - **عدة ملفات مرة واحدة:** كل ملف يأخذ نسخته، أو تُدمج معًا حين يكون هذا هو المطلوب (دمج PDF، دمج فيديو، عدة صور في PDF واحد).
 - **الصور:** تحويل، **قص الصورة**، **إزالة الخلفية**، ضغط، تصغير، تدوير، وحذف بيانات الموقع والكاميرا.
-- **الفيديو والصوت:** تحويل، قص، ضغط، حذف الصوت، تسريع، إبطاء، لقطة من الفيديو، تحويل إلى GIF، واستخراج الصوت.
-- **PDF والمستندات:** من PDF إلى صور أو نص أو Word، دمج، فصل، استخراج صفحات؛ ومن Word وMarkdown والنص إلى PDF بعربية سليمة.
-- **مشاركة بحركة واحدة:** أفلت الملف على «مشاركة» لتفتح نافذة المشاركة في Windows (المشاركة القريبة، البريد، Teams، واتساب...).
+- **الفيديو والصوت:** تحويل، قص، تقسيم لأجزاء، ضغط، حذف الصوت، تسريع، إبطاء، لقطة من الفيديو، تحويل إلى GIF، واستخراج الصوت.
+- **PDF والمستندات:** من PDF إلى صور أو نص أو Word أو Excel أو PowerPoint أو EPUB، مع الدمج والفصل واستخراج الصفحات؛ ومن Word وRTF وHTML وMarkdown والنص إلى PDF أو EPUB بعربية سليمة.
+- **جداول بدون Office:** بين XLSX وODS وCSV وTSV، وإلى PDF بجدول مرتب.
+- **مشاركة بحركة واحدة:** أفلت الملف على «مشاركة» لتفتح نافذة المشاركة في Windows (المشاركة القريبة، البريد، Teams، واتساب...)، أو على «إبقاء عائمًا» ليبقى الملف في بطاقة صغيرة فوق كل النوافذ حتى تسحبه لأي مكان.
 - **آمن:** الملف الأصلي لا يُمس، ولا يُكتب فوق أي ملف، والعملية الملغاة أو الفاشلة لا تترك أي بقايا.
 - **خصوصية كاملة:** بلا حساب، وبلا تتبّع، وبلا رفع. يعمل بدون إنترنت.
 - **خفيف وسريع:** مكتوب بواجهات Windows الأصلية، بالعربية والإنجليزية، وبمظهر فاتح وداكن.
@@ -259,17 +262,18 @@ Licence: [MIT](LICENSE).
 
 | الملفات | التحويل إلى | الأدوات |
 | --- | --- | --- |
-| **صور**: JPG وPNG وWebP وHEIC وAVIF وTIFF وBMP وICO وSVG | JPG، PNG، WebP، AVIF، TIFF، BMP، ICO، PDF | قص، إزالة الخلفية، ضغط، نصف الحجم، تدوير، أبيض وأسود، حذف البيانات، عدة صور في PDF واحد |
+| **صور**: JPG وPNG وWebP وHEIC وAVIF وTIFF وBMP وICO وSVG | JPG، PNG، WebP، AVIF، TIFF، BMP، ICO، PDF | قص، إزالة الخلفية، ضغط، نصف الحجم، تدوير، أبيض وأسود، حذف البيانات، عدة صور في PDF واحد، عرض شرائح PPTX |
 | **GIF** | MP4، MOV، WebM، PNG، JPG، WebP | |
-| **فيديو**: MP4 وMOV وMKV وWebM وAVI وWMV... | MP4، MOV، MKV، WebM، AVI، WMV، GIF، MP3، M4A | ضغط، قص، حذف الصوت، سرعة ×2، بطء ×½، تدوير، لقطة، حذف البيانات، دمج |
-| **صوت**: MP3 وM4A وWAV وFLAC وOGG وOpus وAIFF وWMA | أي صيغة منها | ضغط، قص، توحيد الصوت، أحادي، حذف البيانات |
-| **PDF** | JPG، PNG بدقة 300، TXT، DOCX، MD، HTML | دمج، فصل الصفحات، استخراج صفحات، تدوير |
-| **مستندات**: DOCX وMD وTXT | PDF، DOCX، MD، HTML، TXT | |
+| **فيديو**: MP4 وMOV وMKV وWebM وAVI وWMV... | MP4، MOV، MKV، WebM، AVI، WMV، GIF، MP3، M4A | ضغط، قص، تقسيم، حذف الصوت، سرعة ×2، بطء ×½، تدوير، لقطة، حذف البيانات، دمج |
+| **صوت**: MP3 وM4A وWAV وFLAC وOGG وOpus وAIFF وWMA | أي صيغة منها | ضغط، قص، تقسيم، توحيد الصوت، أحادي، حذف البيانات |
+| **PDF** | JPG، PNG بدقة 300، TXT، DOCX، XLSX، PPTX، EPUB، MD، HTML | دمج، فصل الصفحات، استخراج صفحات، تدوير |
+| **مستندات**: DOCX وRTF وHTML وEPUB وMD وTXT | PDF، DOCX، EPUB، MD، HTML، TXT | |
+| **جداول**: XLSX وODS وCSV وTSV | XLSX، ODS، CSV، TSV، PDF، HTML | |
 | **ترجمات**: SRT وVTT | SRT، VTT، TXT | إزاحة التوقيت |
 | **أرشيف**: ZIP وTAR وTAR.GZ وGZ (و7z وRAR مع 7-Zip) | ZIP، TAR، TAR.GZ | استخراج |
-| **أي ملف أو مجلد** | | نسخ المسار، الطرفية هنا، مشاركة، نسخ إلى، نقل إلى، الخصائص، ZIP |
+| **أي ملف أو مجلد** | | نسخ المسار، الطرفية هنا، مشاركة، نسخ إلى، نقل إلى، إبقاء عائمًا، الخصائص، ZIP |
 
-تحويل المستندات إلى PDF يتم عبر طابعة Microsoft Print to PDF المدمجة في Windows، فيبقى النص العربي صحيحًا وقابلًا للتحديد. لا يحتاج Office.
+تحويل المستندات والجداول إلى PDF يتم عبر طابعة Microsoft Print to PDF المدمجة في Windows، فيبقى النص العربي صحيحًا وقابلًا للتحديد. لا يحتاج Office. وتحويل PDF إلى Excel يعيد بناء الجداول من أماكن النص في الصفحة: ممتاز للفواتير والكشوفات، أما الصفحات الممسوحة ضوئيًا فلا نص فيها ليُقرأ.
 
 ## الإعدادات
 
