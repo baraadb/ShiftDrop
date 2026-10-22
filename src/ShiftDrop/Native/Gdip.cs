@@ -79,6 +79,7 @@ public static unsafe partial class Gdip
     [LibraryImport(Lib)] public static partial int GdipDrawArc(IntPtr g, IntPtr pen, float x, float y, float w, float h, float start, float sweep);
     [LibraryImport(Lib)] public static partial int GdipFillPie(IntPtr g, IntPtr brush, float x, float y, float w, float h, float start, float sweep);
     [LibraryImport(Lib)] public static partial int GdipDrawImageRect(IntPtr g, IntPtr image, float x, float y, float w, float h);
+    [LibraryImport(Lib)] public static partial int GdipDrawImageI(IntPtr g, IntPtr image, int x, int y);
     [LibraryImport(Lib)] public static partial int GdipSetInterpolationMode(IntPtr g, int mode);
     [LibraryImport(Lib)] public static partial int GdipSetClipPath(IntPtr g, IntPtr path, int combine);
     [LibraryImport(Lib)] public static partial int GdipResetClip(IntPtr g);
@@ -134,6 +135,13 @@ public sealed class Canvas : IDisposable
     }
 
     public void Clear() => Gdip.GdipGraphicsClear(G, 0);
+
+    /// <summary>Draws another surface on top at a whole-pixel position (fast: no scaling).</summary>
+    public void DrawCanvas(Canvas src, float x, float y)
+    {
+        if (src._bitmap == IntPtr.Zero) return;
+        Gdip.GdipDrawImageI(G, src._bitmap, (int)MathF.Round(x), (int)MathF.Round(y));
+    }
 
     /// <summary>Copies another surface of the same size (a cached background) into this one.</summary>
     public unsafe void CopyFrom(Canvas src)

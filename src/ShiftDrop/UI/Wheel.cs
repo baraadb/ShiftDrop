@@ -206,25 +206,61 @@ public sealed class Wheel : LayeredWindow, IDropHandler
             c.RingSlice(cx, cy, outer, InnerR * s, mid - step / 2 + gapDeg / 2, mid + step / 2 - gapDeg / 2, Corner * s, fill);
             if (op == null) continue;
 
+            if (p < 0.5f) continue; // the label appears once the petal has mostly grown in
             float rad = mid * MathF.PI / 180;
             float r = rm + 3 * h * s;
             float lx = cx + MathF.Cos(rad) * r, ly = cy + MathF.Sin(rad) * r;
-            float chord = 2 * rm * MathF.Sin(MathF.Min(step, 180) / 2 * MathF.PI / 180) * 0.84f;
-            float bw = Math.Min(chord, 112 * s);
-            uint text = Fade(Mix(petalText, 0xFFFFFFFF, h), p);
-            if (op.Group == OpGroup.Convert)
-            {
-                c.Text(op.Label, lx - bw / 2, ly - 14 * s, bw, 24 * s, 16f * s, text, bold: true);
-                c.RoundRect(lx - 9 * s, ly + 11 * s, 18 * s, 3.5f * s, 1.75f * s, Fade(Mix(family, 0xCCFFFFFF, h), p));
-            }
-            else
-            {
-                Icons.Draw(c, Icons.For(op), lx, ly - 11 * s, 22 * s, Fade(Mix(family, 0xFFFFFFFF, h), p));
-                c.Text(op.Label, lx - bw / 2, ly + 2 * s, bw, 30 * s, 11.5f * s, text, bold: true, valign: Align.Near, wrap: true);
-            }
+            // labels and icons are drawn once into small sprites (normal and highlighted) and copied each frame
+            if (Sprites(i, step, rm, s, petalText) is not var (normal, hot, ox, oy)) continue;
+            c.DrawCanvas(h > 0.5f ? hot : normal, lx - ox, ly - oy);
         }
 
         DrawHub(c, cx, cy, s, now);
+    }
+
+    // ---- label sprites ----
+    readonly List<(Canvas Normal, Canvas Hot)> _sprites = [];
+    string _spriteKey = "";
+
+    (Canvas Normal, Canvas Hot, float OriginX, float OriginY)? Sprites(int i, float step, float rm, float s, uint petalText)
+    {
+        float chord = 2 * rm * MathF.Sin(MathF.Min(step, 180) / 2 * MathF.PI / 180) * 0.84f;
+        float bw = Math.Min(chord, 112 * s), bh = 58 * s, oy = 24 * s;
+        var key = $"{s}|{Dark}|{L.Arabic}|{bw}|" + string.Join(",", _items.Select(o => o.Id));
+        if (key != _spriteKey)
+        {
+            _spriteKey = key;
+            foreach (var (n, h) in _sprites) { n.Dispose(); h.Dispose(); }
+            _sprites.Clear();
+            int w = (int)Math.Ceiling(bw), hpx = (int)Math.Ceiling(bh);
+            foreach (var op in _items)
+            {
+                var normal = new Canvas { Scale = s };
+                var hot = new Canvas { Scale = s };
+                normal.Ensure(w, hpx); hot.Ensure(w, hpx);
+                normal.Clear(); hot.Clear();
+                DrawLabel(normal, op, bw / 2, oy, bw, s, petalText, Icons.Family(op));
+                DrawLabel(hot, op, bw / 2, oy, bw, s, 0xFFFFFFFF, 0xFFFFFFFF);
+                normal.Flush(); hot.Flush();
+                _sprites.Add((normal, hot));
+            }
+        }
+        if (i >= _sprites.Count) return null;
+        return (_sprites[i].Normal, _sprites[i].Hot, (float)Math.Floor(bw / 2), oy);
+    }
+
+    static void DrawLabel(Canvas c, Operation op, float lx, float ly, float bw, float s, uint text, uint accent)
+    {
+        if (op.Group == OpGroup.Convert)
+        {
+            c.Text(op.Label, lx - bw / 2, ly - 14 * s, bw, 24 * s, 16f * s, text, bold: true);
+            c.RoundRect(lx - 9 * s, ly + 11 * s, 18 * s, 3.5f * s, 1.75f * s, accent == 0xFFFFFFFF ? 0xCCFFFFFF : accent);
+        }
+        else
+        {
+            Icons.Draw(c, Icons.For(op), lx, ly - 11 * s, 22 * s, accent);
+            c.Text(op.Label, lx - bw / 2, ly + 2 * s, bw, 30 * s, 11.5f * s, text, bold: true, valign: Align.Near, wrap: true);
+        }
     }
 
     /// <summary>Redraws the still background only when the size, theme, language or wheel changes.</summary>
@@ -263,6 +299,29 @@ public sealed class Wheel : LayeredWindow, IDropHandler
             return;
         }
 
+        // the hub only changes with the hover, the files, the wheel and the thumbnail: draw it once per change
+        float ts = 50 * s;
+        var thumb = _files.Count > 0 ? Thumbs.Get(_files[0], (int)Math.Round(ts * 1.5f), () => { if (Visible) Redraw(); }) : IntPtr.Zero;
+        var key = $"{_hover}|{_items.Count}|{_files.Count}|{(_files.Count > 0 ? _files[0] : "")}|{Mode}|{thumb}|{Dark}|{L.Arabic}|{s}";
+        int size = (int)Math.Ceiling(HubR * 2 * s);
+        if (key != _hubKey)
+        {
+            _hubKey = key;
+            _hub.Scale = s;
+            _hub.Ensure(size, size);
+            _hub.Clear();
+            HubContent(_hub, size / 2f, size / 2f, s, hw, ts, thumb);
+            _hub.Flush();
+        }
+        c.DrawCanvas(_hub, cx - size / 2f, cy - size / 2f);
+    }
+
+    readonly Canvas _hub = new();
+    string _hubKey = "";
+
+    void HubContent(Canvas c, float cx, float cy, float s, float hw, float ts, IntPtr thumb)
+    {
+        var th = _theme;
         int n = _items.Count;
         if (_hover >= 0 && _hover < n)
         {
@@ -278,8 +337,6 @@ public sealed class Wheel : LayeredWindow, IDropHandler
         }
 
         // the dragged file: Explorer's thumbnail, its name, and how many there are
-        float ts = 50 * s;
-        var thumb = _files.Count > 0 ? Thumbs.Get(_files[0], (int)Math.Round(ts * 1.5f), () => { if (Visible) Redraw(); }) : IntPtr.Zero;
         if (thumb != IntPtr.Zero) c.Image(thumb, cx - ts / 2, cy - 44 * s, ts, ts, 9 * s);
         else Icons.Draw(c, _files.Count > 0 && Directory.Exists(_files[0]) ? "folder" : "doc", cx, cy - 19 * s, 30 * s, th.HubSub);
         if (_files.Count > 1)
