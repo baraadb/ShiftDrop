@@ -169,7 +169,13 @@ public sealed partial class App : Window
         try
         {
             if (op.Immediate != null) { op.Immediate(files); return; }
-            if (op.Editor == "crop") { _ = CropAsync(op, files[0]); return; }
+            switch (op.Editor)
+            {
+                case "crop": _ = CropAsync(op, files[0]); return;
+                case "vcrop": _ = VideoCropAsync(op, files[0]); return;
+                case "trim": _ = TrimAsync(op, files[0]); return;
+                case "channels": _ = ChannelsAsync(op, files[0]); return;
+            }
             Dictionary<string, string>? options = null;
             if (op.Fields is { Length: > 0 })
             {
@@ -208,10 +214,9 @@ public sealed partial class App : Window
             if (fw <= 0 || fh <= 0) (fw, fh) = (pw, ph);
             else if (fw != fh && (pw > ph) != (fw > fh)) (fw, fh) = (fh, fw);
             for (int i = 0; i < rgba.Length; i += 4) (rgba[i], rgba[i + 2]) = (rgba[i + 2], rgba[i]); // RGBA → BGRA
-            var area = CropWindow.Ask(Path.GetFileName(file), rgba, pw, ph, fw, fh);
+            var area = CropEditor.Ask(Path.GetFileName(file), rgba, pw, ph, fw, fh);
             if (area is not var (x, y, w, h)) return;
-            if (x == 0 && y == 0 && w == fw && h == fh) return; // nothing cut away
-            Start(op, [file], new() { ["crop"] = string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{x},{y},{w},{h}") });
+            Start(op, [file], new() { ["crop"] = Inv($"{x},{y},{w},{h}") });
         }
         catch (Exception e)
         {
@@ -219,6 +224,76 @@ public sealed partial class App : Window
             Hud.Info(op.Label, e.Message, error: true);
         }
         finally { try { File.Delete(temp); } catch { } }
+    }
+
+    static string Inv(FormattableString s) => s.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>Crop a video: the editor shows frames from anywhere in it.</summary>
+    async Task VideoCropAsync(Operation op, string file)
+    {
+        try
+        {
+            var ff = Services.FFmpeg;
+            var info = await ff.InfoAsync(file, CancellationToken.None);
+            var (fw, fh) = await MediaPreview.UprightSize(ff, file, CancellationToken.None);
+            if (fw <= 0 || fh <= 0) throw new EngineException(L.T("Could not read this video", "تعذّرت قراءة هذا الفيديو"));
+            Task<(byte[], int, int)> FrameAt(double t) => MediaPreview.Frame(ff, file, t, 1280, 720, CancellationToken.None);
+            var (first, pw, ph) = await FrameAt(Math.Min(1, info.Duration / 2));
+            var area = CropEditor.Ask(Path.GetFileName(file), first, pw, ph, fw, fh, info.Duration, FrameAt);
+            if (area is not var (x, y, w, h)) return;
+            Start(op, [file], new() { ["crop"] = Inv($"{x},{y},{w},{h}") });
+        }
+        catch (Exception e)
+        {
+            Log.Write("video crop: " + e);
+            Hud.Info(op.Label, e.Message, error: true);
+        }
+    }
+
+    /// <summary>Trim audio or video on a timeline.</summary>
+    async Task TrimAsync(Operation op, string file)
+    {
+        try
+        {
+            var ff = Services.FFmpeg;
+            var info = await ff.InfoAsync(file, CancellationToken.None);
+            if (info.Duration <= 0) throw new EngineException(L.T("Could not read the length of this file", "تعذّرت قراءة مدة هذا الملف"));
+            bool video = info.HasVideo && FileKinds.Of(file) == FileKind.Video;
+            var load = new TrimWindow.Loaders(
+                buckets => info.HasAudio ? MediaPreview.Peaks(ff, file, buckets, info.Duration, -1, CancellationToken.None) : Task.FromResult(Array.Empty<float>()),
+                video ? (t, w, h) => MediaPreview.Frame(ff, file, t, w, h, CancellationToken.None) : null,
+                (start, length) => MediaPreview.Wav(ff, file, start, length, null, CancellationToken.None));
+            var range = TrimWindow.Ask(Path.GetFileName(file), info.Duration, video, load);
+            if (range is not var (a, b)) return;
+            Start(op, [file], new() { ["start"] = Inv($"{a:0.###}"), ["end"] = Inv($"{b:0.###}") });
+        }
+        catch (Exception e)
+        {
+            Log.Write("trim: " + e);
+            Hud.Info(op.Label, e.Message, error: true);
+        }
+    }
+
+    /// <summary>Mono or stereo with levels for each side.</summary>
+    async Task ChannelsAsync(Operation op, string file)
+    {
+        try
+        {
+            var ff = Services.FFmpeg;
+            var info = await ff.InfoAsync(file, CancellationToken.None);
+            if (!info.HasAudio) throw new EngineException(L.T("This file has no sound", "هذا الملف بلا صوت"));
+            var load = new ChannelsWindow.Loaders(
+                (channel, buckets) => MediaPreview.Peaks(ff, file, buckets, info.Duration, channel, CancellationToken.None),
+                filter => MediaPreview.Wav(ff, file, 0, Math.Min(info.Duration, 20), filter, CancellationToken.None));
+            var choice = ChannelsWindow.Ask(Path.GetFileName(file), info.Duration, load);
+            if (choice is not var (mono, left, right)) return;
+            Start(op, [file], new() { ["mode"] = mono ? "mono" : "stereo", ["left"] = Inv($"{left}"), ["right"] = Inv($"{right}") });
+        }
+        catch (Exception e)
+        {
+            Log.Write("channels: " + e);
+            Hud.Info(op.Label, e.Message, error: true);
+        }
     }
 
     readonly HashSet<Job> _quiet = [];

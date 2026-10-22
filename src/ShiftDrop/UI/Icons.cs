@@ -53,7 +53,7 @@ public static class Icons
             "split" => "split", "normalize" => "wave", "mono" => "speaker", "extract" => id.StartsWith("arc") ? "box" : "pages",
             "shift" => "clock", "share" => "share", "copypath" => "clipboard", "terminal" => "terminal",
             "copyto" => "copy", "moveto" => "folder", "properties" => "info", "zip" => "zip", "float" => "pin",
-            "totable" => "table", "toslides" => "slides",
+            "totable" => "table", "toslides" => "slides", "channels" => "speaker",
             _ => "dot",
         };
     }

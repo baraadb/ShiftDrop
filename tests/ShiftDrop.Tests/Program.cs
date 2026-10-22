@@ -264,7 +264,7 @@ foreach (var ext in new[] { "mp3", "m4a", "flac", "ogg", "opus", "aiff", "wma" }
 await T("audio tools", async () =>
 {
     NeedFf();
-    foreach (var id in new[] { "aud.compress", "aud.normalize", "aud.mono", "aud.strip" }) await Run(id, [wav]);
+    foreach (var id in new[] { "aud.compress", "aud.normalize", "aud.strip" }) await Run(id, [wav]);
     var t = await Run("aud.trim", [wav], new() { ["start"] = "0.5", ["end"] = "" });
     var d = (await ff.InfoAsync(t.Outputs[0], default)).Duration; Assert(d > 1.3 && d < 1.7, "trim " + d);
 });
@@ -543,6 +543,49 @@ await T("split audio and video into parts", async () =>
     await Gen(["-f", "lavfi", "-i", "testsrc2=s=160x120:r=10:d=2", .. H264(), "-g", "4", "-pix_fmt", "yuv420p", src]);
     var v = await Run("vid.split", [src], new() { ["length"] = "1" });
     Assert(Directory.GetFiles(v.Outputs[0]).Length >= 2, "video parts: " + Directory.GetFiles(v.Outputs[0]).Length);
+});
+
+Console.WriteLine("editors");
+await T("waveform peaks and quiet ends", async () =>
+{
+    NeedFf();
+    var p = Path.Combine(Dir("peaks"), "quiet-loud-quiet.wav");
+    await Gen("-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono:d=1", "-f", "lavfi", "-i", "sine=f=440:d=1", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono:d=1",
+        "-filter_complex", "[0][1][2]concat=n=3:v=0:a=1", p);
+    var peaks = await ShiftDrop.Core.Ops.MediaPreview.Peaks(ff, p, 300, 3, -1, default);
+    Assert(peaks.Length == 300 && peaks[50] < 0.01 && peaks[150] > 0.1 && peaks[250] < 0.01, $"peaks {peaks[50]} {peaks[150]} {peaks[250]}");
+    var (a, b) = ShiftDrop.Core.Ops.MediaPreview.SoundBounds(peaks, 3);
+    Assert(Math.Abs(a - 0.9) < 0.15 && Math.Abs(b - 2.1) < 0.15, $"bounds {a} {b}");
+    var left = await ShiftDrop.Core.Ops.MediaPreview.Peaks(ff, wav, 50, 2, 0, default);
+    Assert(left.Max() > 0.05, "left channel " + left.Max());
+    var w = await ShiftDrop.Core.Ops.MediaPreview.Wav(ff, p, 1, 0.5, null, default);
+    Assert(w.Length > 44 && w[0] == 'R' && w[8] == 'W', "wav");
+});
+await T("video frames, upright size, crop", async () =>
+{
+    NeedFf();
+    var (bgra, fw, fh) = await ShiftDrop.Core.Ops.MediaPreview.Frame(ff, mp4, 0.5, 200, 200, default);
+    Assert(fw == 200 && fh == 150 && bgra.Length == fw * fh * 4, $"{fw}x{fh}");
+    var (w, h) = await ShiftDrop.Core.Ops.MediaPreview.UprightSize(ff, mp4, default);
+    Assert(w == 320 && h == 240, $"{w}x{h}");
+    var c = await Run("vid.crop", [mp4], new() { ["crop"] = "11,20,101,80" });
+    var info = await ff.InfoAsync(c.Outputs[0], default);
+    Assert(info.Width == 100 && info.Height == 80, $"{info.Width}x{info.Height}");
+});
+await T("audio channels: mono and louder right side", async () =>
+{
+    NeedFf();
+    var m = await Run("aud.channels", [wav], new() { ["mode"] = "mono", ["left"] = "100", ["right"] = "100" });
+    var probe = await ff.RunToBytesAsync(["-i", m.Outputs[0], "-f", "s16le", "-acodec", "pcm_s16le", "-"], default);
+    var st = await Run("aud.channels", [wav], new() { ["mode"] = "stereo", ["left"] = "0", ["right"] = "150" });
+    var pcm = await ff.RunToBytesAsync(["-i", st.Outputs[0], "-f", "s16le", "-acodec", "pcm_s16le", "-ac", "2", "-"], default);
+    int maxL = 0, maxR = 0;
+    for (int i = 0; i + 3 < pcm.Length; i += 4)
+    {
+        maxL = Math.Max(maxL, Math.Abs((short)(pcm[i] | pcm[i + 1] << 8)));
+        maxR = Math.Max(maxR, Math.Abs((short)(pcm[i + 2] | pcm[i + 3] << 8)));
+    }
+    Assert(m.Outputs[0].Contains("-mono") && probe.Length > 0 && maxL < 50 && maxR > 1000, $"L {maxL} R {maxR}");
 });
 
 Console.WriteLine();
