@@ -33,7 +33,7 @@ It is free, open source, and everything happens **on your PC**.
 - **The wheel knows your file.** It only shows what makes sense for what you're holding: image formats for photos, video formats for clips, and so on.
 - **Many files at once.** Drag a whole selection; each file gets its own copy, or they are combined when that's the point (merge PDFs, join videos, pictures into one PDF).
 - **Images:** convert, crop, remove the background, compress, resize, rotate, strip location and camera data.
-- **Video and audio:** convert, trim, split, compress, mute, speed up, slow down, grab a frame, make a GIF, extract the sound.
+- **Video and audio:** convert, trim on a timeline (waveform and frames), crop the picture, split, compress, mute, speed up, slow down, grab a frame, make a GIF, extract the sound, mono/stereo with levels.
 - **PDF and documents:** PDF to pictures, text, Word, Excel, PowerPoint or EPUB; merge, split, extract pages; Word, RTF, HTML, Markdown and text to PDF or EPUB with proper Arabic.
 - **Spreadsheets without Office:** XLSX, ODS, CSV and TSV into each other, and to a clean PDF table.
 - **Share in one move.** Drop on *Share* to open the Windows share sheet (Nearby sharing, Mail, Teams, WhatsApp…), or on *Float* to keep the files in a little card on top of everything until you drag them somewhere.
@@ -81,7 +81,7 @@ See the [code signing policy](#code-signing-policy).
 
 Once the wheel is open you can let go of the keys. The keys themselves can be changed in Settings.
 
-**Crop** opens a small editor: drag the frame or its corners, pick a ratio (Free, 1:1, 4:3, 3:2, 16:9, 9:16), press <kbd>Enter</kbd>. **Remove background** finds the subject and saves a transparent PNG, fully offline.
+**Crop** (pictures and videos) opens a small editor: drag the frame or its corners, pick a ratio (Free, 1:1, 4:3, 3:2, 16:9, 9:16), press <kbd>Enter</kbd>. **Trim** shows the waveform (and frames for videos): drag the two ends, play the selection, or cut the quiet ends automatically. **Remove background** finds the subject and saves a transparent PNG, fully offline.
 
 ## What it converts
 
@@ -89,8 +89,8 @@ Once the wheel is open you can let go of the keys. The keys themselves can be ch
 | --- | --- | --- |
 | **Images** — JPG, PNG, WebP, HEIC, AVIF, TIFF, BMP, ICO, SVG | JPG, PNG, WebP, AVIF, TIFF, BMP, ICO, PDF | Crop, remove background, compress, half size, rotate, black & white, remove metadata, many pictures → one PDF, pictures → slides (PPTX) |
 | **GIF** | MP4, MOV, WebM, PNG, JPG, WebP | |
-| **Video** — MP4, MOV, MKV, WebM, AVI, WMV… | MP4, MOV, MKV, WebM, AVI, WMV, GIF, MP3, M4A | Compress, trim, split, remove sound, speed ×2, slow ×½, rotate, snapshot, remove metadata, join |
-| **Audio** — MP3, M4A, WAV, FLAC, OGG, Opus, AIFF, WMA | any of these | Compress, trim, split, normalize, mono, remove metadata |
+| **Video** — MP4, MOV, MKV, WebM, AVI, WMV… | MP4, MOV, MKV, WebM, AVI, WMV, GIF, MP3, M4A | Compress, trim, crop, split, remove sound, speed ×2, slow ×½, rotate, snapshot, remove metadata, join |
+| **Audio** — MP3, M4A, WAV, FLAC, OGG, Opus, AIFF, WMA | any of these | Compress, trim, split, normalize, channels (mono / stereo, levels), remove metadata |
 | **PDF** | JPG, PNG (300 DPI), TXT, DOCX, XLSX, PPTX, EPUB, MD, HTML | Merge, split pages, extract pages, rotate |
 | **Documents** — DOCX, RTF, HTML, EPUB, MD, TXT | PDF, DOCX, EPUB, MD, HTML, TXT | |
 | **Spreadsheets** — XLSX, ODS, CSV, TSV | XLSX, ODS, CSV, TSV, PDF, HTML | |
@@ -225,7 +225,7 @@ Licence: [MIT](LICENSE).
 - **العجلة تعرف ملفك:** تعرض فقط ما يناسبه؛ صيغ صور للصور، وصيغ فيديو للفيديو، وهكذا.
 - **عدة ملفات مرة واحدة:** كل ملف يأخذ نسخته، أو تُدمج معًا حين يكون هذا هو المطلوب (دمج PDF، دمج فيديو، عدة صور في PDF واحد).
 - **الصور:** تحويل، **قص الصورة**، **إزالة الخلفية**، ضغط، تصغير، تدوير، وحذف بيانات الموقع والكاميرا.
-- **الفيديو والصوت:** تحويل، قص، تقسيم لأجزاء، ضغط، حذف الصوت، تسريع، إبطاء، لقطة من الفيديو، تحويل إلى GIF، واستخراج الصوت.
+- **الفيديو والصوت:** تحويل، قص المدة على شريط زمني (موجة الصوت وإطارات الفيديو)، قص إطار الفيديو، تقسيم لأجزاء، ضغط، حذف الصوت، تسريع، إبطاء، لقطة من الفيديو، تحويل إلى GIF، استخراج الصوت، وأحادي أو ستيريو مع مستوى كل جهة.
 - **PDF والمستندات:** من PDF إلى صور أو نص أو Word أو Excel أو PowerPoint أو EPUB، مع الدمج والفصل واستخراج الصفحات؛ ومن Word وRTF وHTML وMarkdown والنص إلى PDF أو EPUB بعربية سليمة.
 - **جداول بدون Office:** بين XLSX وODS وCSV وTSV، وإلى PDF بجدول مرتب.
 - **مشاركة بحركة واحدة:** أفلت الملف على «مشاركة» لتفتح نافذة المشاركة في Windows (المشاركة القريبة، البريد، Teams، واتساب...)، أو على «إبقاء عائمًا» ليبقى الملف في بطاقة صغيرة فوق كل النوافذ حتى تسحبه لأي مكان.
@@ -256,7 +256,7 @@ Licence: [MIT](LICENSE).
 
 بعد ما تفتح العجلة تقدر تترك الأزرار، وتقدر تغيّر الأزرار نفسها من الإعدادات.
 
-**قص الصورة** يفتح محررًا صغيرًا: اسحب الإطار أو زواياه، واختر النسبة (حر، 1:1، 4:3، 3:2، 16:9، 9:16)، ثم اضغط Enter. و**إزالة الخلفية** تحدد العنصر الأساسي وتحفظ صورة PNG شفافة، كل ذلك على جهازك.
+**قص الصورة والفيديو** يفتح محررًا صغيرًا: اسحب الإطار أو زواياه، واختر النسبة (حر، 1:1، 4:3، 3:2، 16:9، 9:16)، ثم اضغط Enter. و**قص المدة** يعرض موجة الصوت (وإطارات الفيديو): اسحب الطرفين، وشغّل الجزء المحدد، أو اقطع الصمت من الأطراف تلقائيًا. و**إزالة الخلفية** تحدد العنصر الأساسي وتحفظ صورة PNG شفافة، كل ذلك على جهازك.
 
 ## الصيغ المدعومة
 
@@ -264,8 +264,8 @@ Licence: [MIT](LICENSE).
 | --- | --- | --- |
 | **صور**: JPG وPNG وWebP وHEIC وAVIF وTIFF وBMP وICO وSVG | JPG، PNG، WebP، AVIF، TIFF، BMP، ICO، PDF | قص، إزالة الخلفية، ضغط، نصف الحجم، تدوير، أبيض وأسود، حذف البيانات، عدة صور في PDF واحد، عرض شرائح PPTX |
 | **GIF** | MP4، MOV، WebM، PNG، JPG، WebP | |
-| **فيديو**: MP4 وMOV وMKV وWebM وAVI وWMV... | MP4، MOV، MKV، WebM، AVI، WMV، GIF، MP3، M4A | ضغط، قص، تقسيم، حذف الصوت، سرعة ×2، بطء ×½، تدوير، لقطة، حذف البيانات، دمج |
-| **صوت**: MP3 وM4A وWAV وFLAC وOGG وOpus وAIFF وWMA | أي صيغة منها | ضغط، قص، تقسيم، توحيد الصوت، أحادي، حذف البيانات |
+| **فيديو**: MP4 وMOV وMKV وWebM وAVI وWMV... | MP4، MOV، MKV، WebM، AVI، WMV، GIF، MP3، M4A | ضغط، قص المدة، قص الإطار، تقسيم، حذف الصوت، سرعة ×2، بطء ×½، تدوير، لقطة، حذف البيانات، دمج |
+| **صوت**: MP3 وM4A وWAV وFLAC وOGG وOpus وAIFF وWMA | أي صيغة منها | ضغط، قص، تقسيم، توحيد الصوت، القنوات (أحادي أو ستيريو مع المستوى)، حذف البيانات |
 | **PDF** | JPG، PNG بدقة 300، TXT، DOCX، XLSX، PPTX، EPUB، MD، HTML | دمج، فصل الصفحات، استخراج صفحات، تدوير |
 | **مستندات**: DOCX وRTF وHTML وEPUB وMD وTXT | PDF، DOCX، EPUB، MD، HTML، TXT | |
 | **جداول**: XLSX وODS وCSV وTSV | XLSX، ODS، CSV، TSV، PDF، HTML | |

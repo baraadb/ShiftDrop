@@ -72,6 +72,26 @@ static class Preview
         }
         catch (Exception e) { File.WriteAllText(Path.Combine(outDir, "bench.txt"), e.ToString()); }
 
+        // the editors, with made-up sound and pictures
+        try
+        {
+            var rnd = new Random(7);
+            float[] Wave(int n, double phase) => Enumerable.Range(0, n).Select(i =>
+                (float)Math.Clamp(0.15 + 0.75 * Math.Abs(Math.Sin(i / 9.0 + phase)) * (0.55 + 0.45 * Math.Sin(i / 37.0)) + rnd.NextDouble() * 0.12, 0, 1)).ToArray();
+            var peaks = Wave(237, 0);
+            for (int i = 0; i < 12; i++) peaks[i] *= 0.05f;
+            var frames = Enumerable.Range(0, 8).Select(i => Scene(184, 104, i / 7.0)).ToList();
+            frames.Add(Scene(800, 450, 0.75));
+            TrimWindow.RenderPreview(Path.Combine(outDir, "20-trim-video-light.png"), true, scale, false, false, peaks, frames);
+            TrimWindow.RenderPreview(Path.Combine(outDir, "21-trim-audio-dark-arabic.png"), false, scale, true, true, peaks, []);
+            CropEditor.RenderPreview(Path.Combine(outDir, "22-crop-video-dark.png"), Scene(1280, 720, 0.4), true, scale, true, false);
+            CropEditor.RenderPreview(Path.Combine(outDir, "23-crop-picture-light-arabic.png"), Scene(1280, 720, 0.9), false, scale, false, true);
+            ChannelsWindow.RenderPreview(Path.Combine(outDir, "24-channels-light.png"), Wave(140, 0.3), Wave(140, 1.7), scale, false, false);
+            ChannelsWindow.RenderPreview(Path.Combine(outDir, "25-channels-dark-arabic.png"), Wave(140, 0.3), Wave(140, 1.7), scale, true, true);
+            L.Arabic = false;
+        }
+        catch (Exception e) { File.WriteAllText(Path.Combine(outDir, "20-editors.txt"), e.ToString()); }
+
         // the Float card, light and dark
         foreach (var (mode, name) in new[] { ("light", "12-float-light"), ("dark", "13-float-dark") })
         {
@@ -121,6 +141,27 @@ static class Preview
 
         File.WriteAllText(Path.Combine(outDir, "done.txt"), "ok");
         return 0;
+    }
+
+    /// <summary>A little landscape (sky, sun, sea) as BGRA pixels; <paramref name="t"/> moves the sun.</summary>
+    static (byte[], int, int) Scene(int w, int h, double t)
+    {
+        var px = new byte[w * h * 4];
+        double sunX = w * (0.15 + 0.7 * t), sunY = h * 0.42, sunR = h * 0.12;
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                double v = (double)y / h;
+                (double r, double g, double b) col = v < 0.62
+                    ? (90 + 160 * v, 140 + 90 * v * (1 - t), 220 - 120 * v)            // sky
+                    : (20 + 40 * (v - 0.62), 70 + 80 * (v - 0.62), 110 + 60 * (v - 0.62)); // sea
+                double d = Math.Sqrt((x - sunX) * (x - sunX) + (y - sunY) * (y - sunY));
+                if (d < sunR) col = (255, 214, 120);
+                else if (v >= 0.62 && Math.Abs(x - sunX) < sunR * (1.2 - (v - 0.62) * 2) && (y / 3) % 2 == 0) col = (240, 190, 110); // reflection
+                int i = (y * w + x) * 4;
+                px[i] = (byte)col.b; px[i + 1] = (byte)col.g; px[i + 2] = (byte)col.r; px[i + 3] = 255;
+            }
+        return (px, w, h);
     }
 
     static unsafe void SaveBgrx(byte[] pixels, int w, int h, string path)
