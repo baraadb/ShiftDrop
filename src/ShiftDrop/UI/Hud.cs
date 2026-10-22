@@ -17,6 +17,8 @@ public sealed class Hud : LayeredWindow
         public Action? Action;
         public string? ActionText;
         public bool Error;
+        /// <summary>Set for a download card: 0..1, or negative while the size is unknown.</summary>
+        public double? Progress;
         public DateTime? Until;
         public RectF CloseBox, LinkBox, Bounds;
     }
@@ -47,6 +49,29 @@ public sealed class Hud : LayeredWindow
         _anchor = W.Cursor();
         _cards.Add(new Card { Title = title, Body = body, Error = error, Until = DateTime.Now.AddSeconds(seconds), Action = action, ActionText = actionText });
         Refresh(force: true);
+    }
+
+    /// <summary>A card with a progress bar that stays until <see cref="Finish"/> (used for update downloads).</summary>
+    public object Progress(string title, string body)
+    {
+        _anchor = W.Cursor();
+        var card = new Card { Title = title, Body = body, Progress = -1 };
+        _cards.Add(card);
+        Refresh(force: true);
+        return card;
+    }
+
+    public void SetProgress(object handle, double fraction, string body)
+    {
+        if (handle is not Card card || !_cards.Contains(card)) return;
+        card.Progress = fraction;
+        card.Body = body;
+        Refresh(force: false);
+    }
+
+    public void Finish(object handle)
+    {
+        if (handle is Card card && _cards.Remove(card)) Refresh(force: true);
     }
 
     /// <summary>Called whenever a tracked job changes (progress, finish).</summary>
@@ -100,7 +125,7 @@ public sealed class Hud : LayeredWindow
         for (int i = 0; i < _cards.Count; i++)
         {
             DrawCard(_cards[i], Pad, y, heights[i], rtl);
-            if (_cards[i].Job is { State: JobState.Running or JobState.Queued }) animate = true;
+            if (_cards[i].Job is { State: JobState.Running or JobState.Queued } || _cards[i].Progress < 0) animate = true;
             y += heights[i] + GapY;
         }
         var work = W.MonitorAt(_anchor).Work;
@@ -112,7 +137,7 @@ public sealed class Hud : LayeredWindow
     }
 
     static float Height(Card c) =>
-        c.Job == null ? (c.Action != null ? 104 : 92) : c.Job.State == JobState.Failed ? 96 : 76;
+        c.Job == null ? (c.Progress != null ? 84 : c.Action != null ? 104 : 92) : c.Job.State == JobState.Failed ? 96 : 76;
 
     void DrawCard(Card card, float x0, float y0, float hgt, bool rtl)
     {
@@ -141,7 +166,22 @@ public sealed class Hud : LayeredWindow
             textW -= 14 * s;
             c.Text(card.Title, textX, y + 12 * s, textW, 20 * s, 13.5f * s, card.Error ? th.Danger : th.CardText, bold: true, align: align);
             card.LinkBox = default;
-            if (card.Action != null && card.ActionText != null)
+            if (card.Progress is double pr)
+            {
+                c.Text(card.Body, textX, y + 34 * s, textW, 18 * s, 12 * s, th.CardSub, align: align);
+                float bx0 = x + inner, bw0 = w - inner * 2, by0 = y + 62 * s;
+                c.RoundRect(bx0, by0, bw0, 5 * s, 2.5f * s, th.Track);
+                if (pr >= 0)
+                    c.RoundRect(rtl ? bx0 + bw0 * (1 - (float)pr) : bx0, by0, Math.Max(5 * s, bw0 * (float)Math.Min(1, pr)), 5 * s, 2.5f * s, th.Accent);
+                else
+                {
+                    float t = (Environment.TickCount64 % 1200) / 1200f;
+                    float seg = bw0 * 0.28f, pos = (bw0 + seg) * t - seg;
+                    float a = Math.Max(0, pos), b = Math.Min(bw0, pos + seg);
+                    if (b > a) c.RoundRect(rtl ? bx0 + bw0 - b : bx0 + a, by0, b - a, 5 * s, 2.5f * s, th.Accent);
+                }
+            }
+            else if (card.Action != null && card.ActionText != null)
             {
                 c.Text(card.Body, x + inner, y + 34 * s, w - inner * 2, 30 * s, 12 * s, th.CardSub, align: align, valign: Align.Near, wrap: true);
                 float tw = Math.Min(w - inner * 2, c.MeasureWidth(card.ActionText, 12.5f * s, true) + 4 * s);

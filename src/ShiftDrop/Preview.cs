@@ -58,6 +58,20 @@ static class Preview
         Shot("07-pdf-tools-dark-arabic", [doc], OpGroup.Tool, 1, Theme.Dark, arabic: true);
         Shot("08-many-files-light-arabic", [photo, video, doc], OpGroup.Action, -1, Theme.Light, arabic: true);
         Shot("09-waiting-dark", [], OpGroup.Convert, -1, Theme.Dark, waiting: true);
+        // how long a frame takes to draw (the wheel animates at about 60 frames a second)
+        try
+        {
+            L.Arabic = false;
+            var light = wheel.MeasureFrameMs([photo], OpGroup.Convert, Theme.Light, scale);
+            var dark = wheel.MeasureFrameMs([photo], OpGroup.Tool, Theme.Dark, scale);
+            L.Arabic = true;
+            var arabic = wheel.MeasureFrameMs([photo, video, doc], OpGroup.Action, Theme.Dark, scale);
+            L.Arabic = false;
+            File.WriteAllText(Path.Combine(outDir, "bench.txt"),
+                FormattableString.Invariant($"frame ms at {scale}x: convert/light {light:0.00}, tools/dark {dark:0.00}, actions/arabic {arabic:0.00}"));
+        }
+        catch (Exception e) { File.WriteAllText(Path.Combine(outDir, "bench.txt"), e.ToString()); }
+
         // the Float card, light and dark
         foreach (var (mode, name) in new[] { ("light", "12-float-light"), ("dark", "13-float-dark") })
         {

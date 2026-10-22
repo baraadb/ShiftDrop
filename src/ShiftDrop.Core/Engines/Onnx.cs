@@ -40,6 +40,9 @@ public static unsafe class Onnx
     public static string? FindFile(string name) =>
         Dirs().Select(d => Path.Combine(d, name)).FirstOrDefault(File.Exists);
 
+    /// <summary>The runtime file is there (cheap; doesn't load it).</summary>
+    public static bool Installed => FindFile(LibName) != null;
+
     public static bool Available
     {
         get

@@ -22,6 +22,10 @@
     <PublishReadyToRunExclude Include="Microsoft.Windows.SDK.NET.dll" />
   </ItemGroup>
   <ItemGroup>
+    <!-- a small tray app that waits most of the time: keep the heap compact -->
+    <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="5" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\ShiftDrop.Core\ShiftDrop.Core.csproj" />
     <Content Include="..\..\assets\shiftdrop.ico" Link="shiftdrop.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\..\THIRD_PARTY_NOTICES.md" Link="THIRD_PARTY_NOTICES.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

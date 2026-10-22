@@ -17,7 +17,7 @@ public sealed partial class App : Window
 {
     public const string MainClass = "ShiftDrop.Main";
     const uint WM_INVOKE = W.WM_APP + 1, WM_TRAY = W.WM_APP + 2;
-    const nuint TimerPoll = 1, TimerHide = 2;
+    const nuint TimerPoll = 1, TimerHide = 2, TimerTrim = 3;
     public const nint CopyFiles = 1, CopyShowTip = 2, CopyQuit = 3;
 
     static App? _instance;
@@ -111,14 +111,15 @@ public sealed partial class App : Window
             try { if (PrintPdfRenderer.Available()) services.DocRenderer = new PrintPdfRenderer(); } catch (Exception e) { Log.Write("printer: " + e.Message); }
             bool pdf = Pdfium.Available;
             if (Packaged.IsPackaged) Packaged.RefreshStartupAsync().GetAwaiter().GetResult();
-            // loads ONNX Runtime once now, so the first image wheel doesn't wait for it
-            Log.Write("background removal: " + (MediaOps.BackgroundAvailable ? "ready" : "not available"));
+            Log.Write("background removal: " + (MediaOps.BackgroundAvailable ? "installed" : "not installed"));
             Post(() => app.StartupNotes(pdf));
             if (services.FFmpeg.Available) { Thread.Sleep(3000); Log.Write("h264 encoder: " + services.FFmpeg.H264); }
             // daily update check, a little after start-up so it never slows the login
             Thread.Sleep(20000);
             if (app.Settings.AutoUpdate && Updater.Configured && DateTime.Now - app.Settings.LastUpdateCheck > TimeSpan.FromHours(20))
                 Post(async () => await app.CheckForUpdatesAsync(manual: false));
+            // start-up is done: hand back the memory it needed
+            Post(() => W.SetTimer(app.Hwnd, TimerTrim, 5000, IntPtr.Zero));
         });
 
         if (startFiles.Count > 0) Post(() => app.Wheel.ShowForFiles(W.Cursor(), startFiles));
@@ -231,7 +232,18 @@ public sealed partial class App : Window
             Hud.Info(job.Title, job.Error ?? "", error: true, seconds: 15);
         if (job.State == JobState.Done && Settings.RevealWhenDone && job.Outputs.Count > 0)
             Hud.Reveal(job.Outputs[0]);
+        // give memory back to Windows a little after the work is done
+        W.SetTimer(Hwnd, TimerTrim, 10_000, IntPtr.Zero);
     }
+
+    static void TrimMemory()
+    {
+        GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
+        SetProcessWorkingSetSize(System.Diagnostics.Process.GetCurrentProcess().Handle, -1, -1);
+    }
+
+    [System.Runtime.InteropServices.LibraryImport("kernel32.dll")]
+    private static partial int SetProcessWorkingSetSize(IntPtr process, nint min, nint max);
 
     // ---------------- settings ----------------
 
@@ -285,7 +297,7 @@ public sealed partial class App : Window
             if (manual || Settings.SkippedVersion != v)
                 Hud.Info(L.T($"ShiftDrop {v} is available", $"الإصدار {v} من ShiftDrop متاح"),
                     L.T("Install it now; ShiftDrop restarts by itself.", "ثبّته الآن، وسيعود ShiftDrop للعمل وحده."),
-                    seconds: 30, action: () => InstallUpdate(info, null), actionText: L.T("Install update", "تثبيت التحديث"));
+                    seconds: 30, action: () => InstallUpdate(info), actionText: L.T("Install update", "تثبيت التحديث"));
             return (info, L.T($"Version {v} is available", $"الإصدار {v} متاح"));
         }
         catch (Exception e)
@@ -297,21 +309,46 @@ public sealed partial class App : Window
         }
     }
 
-    public async void InstallUpdate(UpdateInfo info, Action<string>? status)
+    /// <summary>Download state for anyone showing it (the settings window, the card in the corner).</summary>
+    public (bool Active, long Done, long Total, string Text) Download { get; private set; }
+    public event Action? DownloadChanged;
+
+    public static string DownloadText(long done, long total)
+    {
+        static string Mb(long b) => (b / 1048576.0).ToString(b >= 100 * 1048576 ? "0" : "0.0", System.Globalization.CultureInfo.InvariantCulture);
+        if (total <= 0) return L.T($"{Mb(done)} MB downloaded", $"تم تنزيل {Mb(done)} ميغا");
+        int pct = (int)Math.Floor(done * 100.0 / total);
+        return L.T($"{pct}% · {Mb(done)} of {Mb(total)} MB", $"{pct}% · {Mb(done)} من {Mb(total)} ميغا");
+    }
+
+    public async void InstallUpdate(UpdateInfo info)
     {
         if (_updating) return;
         _updating = true;
+        var v = info.Version.ToString(3);
+        var card = Hud.Progress(L.T($"Downloading ShiftDrop {v}", $"تنزيل ShiftDrop {v}"), L.T("Starting…", "جارٍ البدء…"));
+        void Set(bool active, long done, long total, string text)
+        {
+            Download = (active, done, total, text);
+            Hud.SetProgress(card, total > 0 ? (double)done / total : -1, text);
+            DownloadChanged?.Invoke();
+        }
         try
         {
-            status?.Invoke(L.T("Downloading…", "جارٍ التنزيل…"));
-            Hud.Info(L.T("Downloading the update…", "جارٍ تنزيل التحديث…"), $"ShiftDrop {info.Version.ToString(3)}", seconds: 60);
-            await Updater.InstallAsync(info, null);
-            if (info.SetupUrl != null) W.PostQuitMessage(0); // the installer restarts ShiftDrop
+            Set(true, 0, 0, L.T("Starting…", "جارٍ البدء…"));
+            await Updater.InstallAsync(info, (done, total) => Post(() => Set(true, done, total, DownloadText(done, total))));
+            if (info.SetupUrl != null)
+            {
+                Set(true, 1, 1, L.T("Installing… ShiftDrop restarts by itself", "جارٍ التثبيت… سيعود ShiftDrop وحده"));
+                W.PostQuitMessage(0); // the installer restarts ShiftDrop
+            }
+            else Hud.Finish(card);
         }
         catch (Exception e)
         {
             Log.Write("update install: " + e);
-            status?.Invoke(L.T("The download failed", "فشل التنزيل"));
+            Hud.Finish(card);
+            Set(false, 0, 0, L.T("The download failed", "فشل التنزيل"));
             Hud.Info(L.T("Update failed", "فشل التحديث"), e.Message, error: true, seconds: 15);
         }
         finally { _updating = false; }
@@ -409,6 +446,7 @@ public sealed partial class App : Window
 
             case W.WM_TIMER:
                 if ((nuint)w == TimerPoll) Poll();
+                else if ((nuint)w == TimerTrim) { W.KillTimer(Hwnd, TimerTrim); if (!_down) TrimMemory(); }
                 else if ((nuint)w == TimerHide)
                 {
                     W.KillTimer(Hwnd, TimerHide);

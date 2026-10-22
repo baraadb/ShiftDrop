@@ -120,13 +120,31 @@ public static class MediaOps
     static Onnx.Session? _bgSession;
     static readonly object BgGate = new();
 
-    public static bool BackgroundAvailable => Onnx.FindFile(BackgroundModel) != null && Onnx.Available;
+    /// <summary>True when the model and the runtime are installed. Nothing is loaded until the tool is used.</summary>
+    public static bool BackgroundAvailable => Onnx.FindFile(BackgroundModel) != null && Onnx.Installed;
+
+    static long _bgUsed;
 
     static Onnx.Session BgSession()
     {
         lock (BgGate)
+        {
+            _bgUsed = Environment.TickCount64;
             return _bgSession ??= new Onnx.Session(Onnx.FindFile(BackgroundModel)
                 ?? throw new EngineException(L.T("The background model is missing", "نموذج إزالة الخلفية غير موجود")));
+        }
+    }
+
+    /// <summary>The model takes a lot of memory; let it go when it hasn't been used for a while.</summary>
+    static async void ReleaseBgSessionLater()
+    {
+        await Task.Delay(TimeSpan.FromMinutes(2)).ConfigureAwait(false);
+        lock (BgGate)
+        {
+            if (_bgSession == null || Environment.TickCount64 - _bgUsed < 110_000) return;
+            _bgSession.Dispose();
+            _bgSession = null;
+        }
     }
 
     /// <summary>Cuts the subject out with the U²-Net (silueta) model and saves a transparent PNG.</summary>
@@ -143,6 +161,7 @@ public static class MediaOps
         c.Progress.Report(0.25);
 
         var mask = await Task.Run(() => Mask(small, S), c.Token);
+        ReleaseBgSessionLater();
         c.Progress.Report(0.85);
         c.Token.ThrowIfCancellationRequested();
 

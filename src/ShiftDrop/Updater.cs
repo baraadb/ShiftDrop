@@ -65,24 +65,32 @@ public static class Updater
     }
 
     /// <summary>Downloads the installer, starts it silently and returns; the installer closes and restarts ShiftDrop.</summary>
-    public static async Task InstallAsync(UpdateInfo update, IProgress<double>? progress, CancellationToken ct = default)
+    public static async Task InstallAsync(UpdateInfo update, Action<long, long>? progress, CancellationToken ct = default)
     {
         if (update.SetupUrl == null) { OpenPage(update.PageUrl); return; }
         var file = Path.Combine(Path.GetTempPath(), $"ShiftDrop-Setup-{update.Version.ToString(3)}.exe");
-        using (var resp = await Http.GetAsync(update.SetupUrl, HttpCompletionOption.ResponseHeadersRead, ct))
+        using (var resp = await Http.GetAsync(update.SetupUrl, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false))
         {
             resp.EnsureSuccessStatusCode();
             long total = resp.Content.Headers.ContentLength ?? 0;
-            await using var src = await resp.Content.ReadAsStreamAsync(ct);
-            await using var dst = new FileStream(file, FileMode.Create, FileAccess.Write);
-            var buf = new byte[1 << 16];
-            long done = 0; int n;
-            while ((n = await src.ReadAsync(buf, ct)) > 0)
+            await using var src = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+            await using var dst = new FileStream(file, FileMode.Create, FileAccess.Write, FileShare.None, 1 << 16, useAsync: true);
+            var buf = new byte[1 << 17];
+            long done = 0, reportedAt = 0;
+            int n;
+            progress?.Invoke(0, total);
+            while ((n = await src.ReadAsync(buf, ct).ConfigureAwait(false)) > 0)
             {
-                await dst.WriteAsync(buf.AsMemory(0, n), ct);
+                await dst.WriteAsync(buf.AsMemory(0, n), ct).ConfigureAwait(false);
                 done += n;
-                if (total > 0) progress?.Report((double)done / total);
+                // a few updates a second are plenty for a progress bar
+                if (Environment.TickCount64 - reportedAt > 120 || done == total)
+                {
+                    reportedAt = Environment.TickCount64;
+                    progress?.Invoke(done, total);
+                }
             }
+            progress?.Invoke(done, Math.Max(total, done));
         }
         Process.Start(new ProcessStartInfo(file, "/SILENT /SUPPRESSMSGBOXES /NORESTART") { UseShellExecute = true });
     }

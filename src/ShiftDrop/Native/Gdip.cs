@@ -135,6 +135,16 @@ public sealed class Canvas : IDisposable
 
     public void Clear() => Gdip.GdipGraphicsClear(G, 0);
 
+    /// <summary>Copies another surface of the same size (a cached background) into this one.</summary>
+    public unsafe void CopyFrom(Canvas src)
+    {
+        if (src.Width != Width || src.Height != Height || src._bits == IntPtr.Zero || _bits == IntPtr.Zero) { Clear(); return; }
+        src.Flush();
+        Flush();
+        long bytes = (long)Width * Height * 4;
+        Buffer.MemoryCopy((void*)src._bits, (void*)_bits, bytes, bytes);
+    }
+
     /// <summary>Saves the surface as a PNG (used by the preview renderer).</summary>
     public void SavePng(string path)
     {

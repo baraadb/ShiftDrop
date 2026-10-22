@@ -23,7 +23,7 @@ public sealed partial class SettingsWindow : Window
     int _nextId = 1000;
     readonly Dictionary<int, Action<IntPtr, int>> _handlers = [];
     readonly HashSet<IntPtr> _muted = [];
-    IntPtr _keysNote, _folderLabel, _folderButton, _saveCombo, _updateButton, _updateStatus;
+    IntPtr _keysNote, _folderLabel, _folderButton, _saveCombo, _updateButton, _updateStatus, _updateBar;
     UpdateInfo? _found;
 
     public static void Open(App app, POINT? at = null)
@@ -113,7 +113,14 @@ public sealed partial class SettingsWindow : Window
         _updateButton = Button(right, yR, P(150), L.T("Check now", "ابحث الآن"), OnUpdateButton);
         _updateStatus = Label(right + P(160), yR + P(6), colW - P(160), P(22),
             L.T($"You have version {AppInfo.VersionText}", $"لديك الإصدار {AppInfo.VersionText}"), muted: true);
-        yR += P(40);
+        yR += P(38);
+        // shown while an update downloads
+        _updateBar = Add("msctls_progress32", "", 0, right, yR, colW, P(8));
+        W.SendMessageW(_updateBar, PBM_SETRANGE32, 0, 1000);
+        W.ShowWindow(_updateBar, W.SW_HIDE);
+        yR += P(14);
+        _app.DownloadChanged += ShowDownload;
+        ShowDownload();
 
         yR += P(10);
         Header(right, ref yR, colW, L.T("About", "حول البرنامج"));
@@ -257,11 +264,33 @@ public sealed partial class SettingsWindow : Window
         W.ShowWindow(_folderButton, custom ? W.SW_SHOW : W.SW_HIDE);
     }
 
+    const uint PBM_SETPOS = 0x0402, PBM_SETRANGE32 = 0x0406, PBM_SETMARQUEE = 0x040A;
+    const uint PBS_MARQUEE = 0x08;
+
+    /// <summary>Mirrors the app's download state: bar, percentage and megabytes.</summary>
+    void ShowDownload()
+    {
+        if (Hwnd == IntPtr.Zero) return;
+        var d = _app.Download;
+        if (!d.Active && d.Text.Length == 0) return;
+        W.ShowWindow(_updateBar, d.Active ? W.SW_SHOW : W.SW_HIDE);
+        bool known = d.Total > 0;
+        var style = (uint)W.GetWindowLongPtrW(_updateBar, -16 /*GWL_STYLE*/);
+        if (known == ((style & PBS_MARQUEE) != 0))
+        {
+            W.SetWindowLongPtrW(_updateBar, -16, (nint)(known ? style & ~PBS_MARQUEE : style | PBS_MARQUEE));
+            W.SendMessageW(_updateBar, PBM_SETMARQUEE, known ? 0 : 1, 30);
+        }
+        if (known) W.SendMessageW(_updateBar, PBM_SETPOS, (IntPtr)(int)(d.Done * 1000 / d.Total), 0);
+        SetText(_updateStatus, d.Text);
+        W.EnableWindow(_updateButton, d.Active ? 0 : 1);
+    }
+
     async void OnUpdateButton()
     {
         if (_found != null)
         {
-            _app.InstallUpdate(_found, status => SetText(_updateStatus, status));
+            _app.InstallUpdate(_found);
             return;
         }
         W.EnableWindow(_updateButton, 0);
@@ -321,6 +350,7 @@ public sealed partial class SettingsWindow : Window
                 Close();
                 return 0;
             case W.WM_DESTROY:
+                _app.DownloadChanged -= ShowDownload;
                 W.DeleteObject(_font);
                 W.DeleteObject(_bold);
                 if (_icon != IntPtr.Zero) W.DestroyIcon(_icon);

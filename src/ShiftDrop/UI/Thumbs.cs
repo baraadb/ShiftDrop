@@ -11,6 +11,7 @@ public static unsafe partial class Thumbs
 {
     static readonly Dictionary<string, (IntPtr Bmp, IntPtr Mem)> Cache = new(StringComparer.OrdinalIgnoreCase);
     static readonly Queue<string> Order = new();
+    static readonly HashSet<string> Pending = new(StringComparer.OrdinalIgnoreCase);
     const int Keep = 12;
 
     /// <summary>A cached bitmap, or null while it's being made (then <paramref name="ready"/> runs on the UI thread).</summary>
@@ -18,7 +19,11 @@ public static unsafe partial class Thumbs
     {
         var key = $"{path}|{size}";
         lock (Cache)
+        {
             if (Cache.TryGetValue(key, out var hit)) return hit.Bmp;
+            // one request per file: the wheel asks on every frame while the picture is on its way
+            if (!Pending.Add(key)) return IntPtr.Zero;
+        }
         var t = new Thread(() =>
         {
             var bmp = Load(path, size);
@@ -26,6 +31,7 @@ public static unsafe partial class Thumbs
             {
                 lock (Cache)
                 {
+                    Pending.Remove(key);
                     if (Cache.ContainsKey(key)) { Free(bmp); return; }
                     Cache[key] = bmp;
                     Order.Enqueue(key);

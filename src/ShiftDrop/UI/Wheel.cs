@@ -11,7 +11,7 @@ public sealed class Wheel : LayeredWindow, IDropHandler
 {
     // design sizes in device-independent pixels
     const float PlateR = 170, OuterR = 156, InnerR = 74, HubR = 66, Margin = 22, Corner = 9, Gap = 6, StripH = 46;
-    const int OpenMs = 260, StaggerMs = 16, PetalMs = 170;
+    const int OpenMs = 140, StaggerMs = 10, PetalMs = 130;
     const nuint TimerAnim = 1;
 
     public required Func<IReadOnlyList<string>, OpGroup, List<Operation>> ItemsFor { get; init; }
@@ -37,6 +37,9 @@ public sealed class Wheel : LayeredWindow, IDropHandler
     bool _strip;
     Theme _theme = Theme.Light;
     POINT _center;
+    // the parts that don't move (shadow, plate, hub, mode strip) are drawn once into this and copied each frame
+    readonly Canvas _base = new();
+    string _baseKey = "";
 
     public Wheel()
     {
@@ -153,11 +156,10 @@ public sealed class Wheel : LayeredWindow, IDropHandler
         if (!Visible) return;
         Render();
         float t = Math.Clamp((Environment.TickCount64 - _openStart) / (float)OpenMs, 0, 1);
-        Present(X, Y, (byte)(255 * Math.Min(1, Ease(t) * 1.4f)));
+        Present(X, Y, (byte)(255 * Math.Min(1, Ease(t) * 1.3f)));
     }
 
     static float Ease(float t) => 1 - MathF.Pow(1 - Math.Clamp(t, 0, 1), 3);
-    static float Back(float t) { t = Math.Clamp(t, 0, 1); const float c = 1.4f; return 1 + (c + 1) * MathF.Pow(t - 1, 3) + c * MathF.Pow(t - 1, 2); }
 
     static uint Mix(uint a, uint b, float t)
     {
@@ -178,14 +180,8 @@ public sealed class Wheel : LayeredWindow, IDropHandler
         var th = _theme;
         float s = _scale, cx = c.Width / 2f, cy = CenterYPx;
         long now = Environment.TickCount64;
-        float open = Back((now - _openStart) / (float)OpenMs);
-        c.Clear();
-        c.Transform(cx, cy, 0.88f + 0.12f * open);
-
-        // soft shadow, glassy plate with a thin rim
-        for (int i = 4; i >= 1; i--) c.FillCircle(cx, cy + 5 * s, (PlateR + i * 4) * s, Dark ? 0x16000000u : 0x0C0F172Au);
-        c.GradientCircle(cx, cy, PlateR * s, Dark ? 0xF5222A38u : 0xF7F8FAFDu, Dark ? 0xF5161B25u : 0xF5E8EDF4u);
-        c.StrokeCircle(cx, cy, PlateR * s - 0.5f, Dark ? 0x26FFFFFFu : 0x140B1220u, 1);
+        DrawBase(c.Width, c.Height, s, cx, cy);
+        c.CopyFrom(_base);
 
         int n = _items.Count;
         bool waiting = !GotFiles;
@@ -229,15 +225,33 @@ public sealed class Wheel : LayeredWindow, IDropHandler
         }
 
         DrawHub(c, cx, cy, s, now);
-        c.ResetTransform();
-        if (_strip) DrawStrip(c, cx, cy + (PlateR + 12) * s, s, open);
+    }
+
+    /// <summary>Redraws the still background only when the size, theme, language or wheel changes.</summary>
+    void DrawBase(int w, int h, float s, float cx, float cy)
+    {
+        var keys = Hints();
+        var key = $"{w}x{h}|{s}|{Dark}|{Mode}|{ClickMode}|{L.Arabic}|{keys}";
+        if (key == _baseKey) return;
+        _baseKey = key;
+        var b = _base;
+        b.Scale = s;
+        b.Ensure(w, h);
+        b.Clear();
+        // soft shadow, glassy plate with a thin rim
+        for (int i = 4; i >= 1; i--) b.FillCircle(cx, cy + 5 * s, (PlateR + i * 4) * s, Dark ? 0x16000000u : 0x0C0F172Au);
+        b.GradientCircle(cx, cy, PlateR * s, Dark ? 0xF5222A38u : 0xF7F8FAFDu, Dark ? 0xF5161B25u : 0xF5E8EDF4u);
+        b.StrokeCircle(cx, cy, PlateR * s - 0.5f, Dark ? 0x26FFFFFFu : 0x140B1220u, 1);
+        // hub
+        b.FillCircle(cx, cy, HubR * s, Dark ? 0xFF121721u : 0xFFFFFFFFu);
+        b.StrokeCircle(cx, cy, HubR * s, Dark ? 0x1FFFFFFFu : 0x120B1220u, 1);
+        if (_strip) DrawStrip(b, cx, cy + (PlateR + 12) * s, s, 1);
+        b.Flush();
     }
 
     void DrawHub(Canvas c, float cx, float cy, float s, long now)
     {
         var th = _theme;
-        c.FillCircle(cx, cy, HubR * s, Dark ? 0xFF121721u : 0xFFFFFFFFu);
-        c.StrokeCircle(cx, cy, HubR * s, Dark ? 0x1FFFFFFFu : 0x120B1220u, 1);
         float hw = HubR * 2 * s * 0.80f;
 
         if (!GotFiles)
@@ -340,6 +354,21 @@ public sealed class Wheel : LayeredWindow, IDropHandler
         Canvas.Ensure(WidthPx, HeightPx);
         Render();
         Canvas.SavePng(path);
+    }
+
+    /// <summary>Average time to draw one frame while the hover moves (ShiftDrop.exe --preview writes it to bench.txt).</summary>
+    public double MeasureFrameMs(IReadOnlyList<string> files, OpGroup mode, Theme theme, float scale, int frames = 120)
+    {
+        RenderPreview(Path.Combine(Path.GetTempPath(), "shiftdrop-bench.png"), files, mode, 0, theme, scale);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        for (int i = 0; i < frames; i++)
+        {
+            _hover = i % Math.Max(1, _items.Count);
+            Step();
+            Render();
+            Canvas.Flush();
+        }
+        return sw.Elapsed.TotalMilliseconds / frames;
     }
 
     // ---------------- hit testing ----------------
