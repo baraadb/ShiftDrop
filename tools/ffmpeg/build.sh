@@ -50,6 +50,17 @@ fetch() { # name url tag commit
     [[ "$got" == "$4"* ]] || { echo "$1: expected commit $4, got $got" >&2; exit 1; }
 }
 
+# one exact commit (for libraries taken from their main branch)
+fetch_commit() { # name url commit
+    local dir="$SRC/$1"
+    if [ ! -d "$dir/.git" ] || [ "$(git -C "$dir" rev-parse HEAD)" != "$3" ]; then
+        rm -rf "$dir"; mkdir -p "$dir"
+        git -C "$dir" init -q; git -C "$dir" remote add origin "$2"
+        git -C "$dir" fetch -q --depth 1 origin "$3"
+        git -C "$dir" -c advice.detachedHead=false checkout -q FETCH_HEAD
+    fi
+}
+
 # a release tarball, checked by sha256
 fetch_tar() { # name url sha256
     local file="$SRC/$(basename "$2")" dir="$SRC/$1"
@@ -119,7 +130,7 @@ if ! done_mark dav1d; then
 fi
 
 if ! done_mark svtav1; then
-    log SVT-AV1; fetch svtav1 https://github.com/AOMediaCodec/SVT-AV1 "$SVTAV1_TAG" "$SVTAV1_COMMIT"
+    log SVT-AV1; fetch_commit svtav1 https://github.com/AOMediaCodec/SVT-AV1 "$SVTAV1_COMMIT"
     rm -rf "$SRC/svtav1/build"
     "${CMAKE[@]}" -S "$SRC/svtav1" -B "$SRC/svtav1/build" -DBUILD_APPS=OFF -DBUILD_DEC=OFF -DBUILD_TESTING=OFF -DENABLE_AVX512=ON >/dev/null
     ninja -C "$SRC/svtav1/build" install >/dev/null
@@ -284,7 +295,7 @@ done
     echo "ShiftDrop FFmpeg build"
     echo "FFmpeg $FFMPEG_TAG ($FFMPEG_COMMIT) - LGPL 2.1 or later - https://ffmpeg.org"
     echo "Compiler: $($CC --version | head -1)"
-    echo "dav1d $DAV1D_TAG · libaom $AOM_TAG · SVT-AV1 $SVTAV1_TAG · libvpx $VPX_TAG · libwebp $WEBP_TAG"
+    echo "dav1d $DAV1D_TAG · libaom $AOM_TAG · SVT-AV1 $SVTAV1_TAG ${SVTAV1_COMMIT:0:12} · libvpx $VPX_TAG · libwebp $WEBP_TAG"
     echo "opus $OPUS_TAG · ogg $OGG_TAG · vorbis $VORBIS_TAG · LAME $(cat "$PREFIX/lame-version.txt") · zlib $ZLIB_TAG"
     echo "nv-codec-headers $NVCODEC_TAG · AMF $AMF_TAG · Intel VPL $VPL_TAG"
     echo "Built by tools/ffmpeg/build.sh: https://github.com/baraadb/ShiftDrop"
