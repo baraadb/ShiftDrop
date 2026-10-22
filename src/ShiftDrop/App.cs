@@ -310,7 +310,7 @@ public sealed partial class App : Window
     }
 
     /// <summary>Download state for anyone showing it (the settings window, the card in the corner).</summary>
-    public (bool Active, long Done, long Total, string Text) Download { get; private set; }
+    public (bool Active, long Done, long Total, string Text) Download { get; private set; } = (false, 0, 0, "");
     public event Action? DownloadChanged;
 
     public static string DownloadText(long done, long total)

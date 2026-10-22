@@ -272,7 +272,7 @@ public sealed partial class SettingsWindow : Window
     {
         if (Hwnd == IntPtr.Zero) return;
         var d = _app.Download;
-        if (!d.Active && d.Text.Length == 0) return;
+        if (!d.Active && string.IsNullOrEmpty(d.Text)) return;
         W.ShowWindow(_updateBar, d.Active ? W.SW_SHOW : W.SW_HIDE);
         bool known = d.Total > 0;
         var style = (uint)W.GetWindowLongPtrW(_updateBar, -16 /*GWL_STYLE*/);

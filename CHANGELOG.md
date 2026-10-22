@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.2
+
+- Fixed: Settings didn't open in 0.4.1 (from the tray menu or by clicking the icon).
+
+**إصلاح: نافذة الإعدادات لم تكن تفتح في 0.4.1.**
+
 ## 0.4.1
 
 - **The wheel opens smoothly again.** The picture in the middle was being requested from Windows on every frame while it loaded; now it's asked for once. The still parts of the wheel, the labels and the middle are drawn once and reused, and the opening animation is shorter (each frame takes about a third less work, much less when nothing changes).
