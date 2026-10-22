@@ -7,6 +7,7 @@ public static unsafe class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        if (args.Length >= 2 && args[0] == "--preview") return Preview.Run(Path.GetFullPath(args[1]));
         var files = args.Where(a => !a.StartsWith("--") && (File.Exists(a) || Directory.Exists(a))).Select(Path.GetFullPath).ToList();
         using var mutex = new Mutex(true, @"Local\ShiftDrop.Running", out bool first);
         if (!first)

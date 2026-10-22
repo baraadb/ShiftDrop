@@ -76,6 +76,17 @@ public static unsafe partial class Gdip
     public static partial int GdipMeasureString(IntPtr g, string text, int length, IntPtr font, ref RectF layout, IntPtr format,
         out RectF box, out int codepoints, out int lines);
 
+    [LibraryImport(Lib)] public static partial int GdipDrawArc(IntPtr g, IntPtr pen, float x, float y, float w, float h, float start, float sweep);
+    [LibraryImport(Lib)] public static partial int GdipFillPie(IntPtr g, IntPtr brush, float x, float y, float w, float h, float start, float sweep);
+    [LibraryImport(Lib)] public static partial int GdipDrawImageRect(IntPtr g, IntPtr image, float x, float y, float w, float h);
+    [LibraryImport(Lib)] public static partial int GdipSetInterpolationMode(IntPtr g, int mode);
+    [LibraryImport(Lib)] public static partial int GdipSetClipPath(IntPtr g, IntPtr path, int combine);
+    [LibraryImport(Lib)] public static partial int GdipResetClip(IntPtr g);
+    [LibraryImport(Lib)] public static partial int GdipCreateLineBrushFromRect(ref RectF rect, uint c1, uint c2, int mode, int wrap, out IntPtr brush);
+
+    [LibraryImport(Lib, StringMarshalling = StringMarshalling.Utf16)]
+    public static partial int GdipSaveImageToFile(IntPtr image, string file, ref Guid encoder, IntPtr parameters);
+
     public const int PixelFormat32bppPARGB = 0x000E200B;
 }
 
@@ -123,6 +134,14 @@ public sealed class Canvas : IDisposable
     }
 
     public void Clear() => Gdip.GdipGraphicsClear(G, 0);
+
+    /// <summary>Saves the surface as a PNG (used by the preview renderer).</summary>
+    public void SavePng(string path)
+    {
+        Flush();
+        var png = new Guid("557CF406-1A04-11D3-9A73-0000F81EF32E");
+        Gdip.GdipSaveImageToFile(_bitmap, path, ref png, IntPtr.Zero);
+    }
     public void Flush() => Gdip.GdipFlush(G, 1);
 
     public void Transform(float cx, float cy, float scale)
@@ -146,6 +165,45 @@ public sealed class Canvas : IDisposable
         Gdip.GdipDrawEllipse(G, Pen(argb, width), cx - r, cy - r, r * 2, r * 2);
 
     public void FillRect(float x, float y, float w, float h, uint argb) => Gdip.GdipFillRectangle(G, Brush(argb), x, y, w, h);
+
+    public void Arc(float cx, float cy, float r, float start, float sweep, uint argb, float width) =>
+        Gdip.GdipDrawArc(G, Pen(argb, width), cx - r, cy - r, r * 2, r * 2, start, sweep);
+
+    public void FillPie(float cx, float cy, float r, float start, float sweep, uint argb) =>
+        Gdip.GdipFillPie(G, Brush(argb), cx - r, cy - r, r * 2, r * 2, start, sweep);
+
+    public void Polyline(uint argb, float width, params float[] xy)
+    {
+        for (int i = 0; i + 3 < xy.Length; i += 2) Line(xy[i], xy[i + 1], xy[i + 2], xy[i + 3], argb, width);
+    }
+
+    /// <summary>A circle filled with a top-to-bottom gradient.</summary>
+    public void GradientCircle(float cx, float cy, float r, uint top, uint bottom)
+    {
+        var rect = new RectF(cx - r, cy - r, r * 2, r * 2 + 1);
+        if (Gdip.GdipCreateLineBrushFromRect(ref rect, top, bottom, 1 /*vertical*/, 0, out var b) != 0) { FillCircle(cx, cy, r, top); return; }
+        Gdip.GdipFillEllipse(G, b, cx - r, cy - r, r * 2, r * 2);
+        Gdip.GdipDeleteBrush(b);
+    }
+
+    /// <summary>Draws a GDI+ image into a rounded rectangle.</summary>
+    public void Image(IntPtr image, float x, float y, float w, float h, float radius)
+    {
+        Gdip.GdipResetPath(_path);
+        float d = Math.Min(radius * 2, Math.Min(w, h));
+        if (d > 0.5f)
+        {
+            Gdip.GdipAddPathArc(_path, x, y, d, d, 180, 90);
+            Gdip.GdipAddPathArc(_path, x + w - d, y, d, d, 270, 90);
+            Gdip.GdipAddPathArc(_path, x + w - d, y + h - d, d, d, 0, 90);
+            Gdip.GdipAddPathArc(_path, x, y + h - d, d, d, 90, 90);
+            Gdip.GdipClosePathFigure(_path);
+            Gdip.GdipSetClipPath(G, _path, 0);
+        }
+        Gdip.GdipSetInterpolationMode(G, 7);
+        Gdip.GdipDrawImageRect(G, image, x, y, w, h);
+        Gdip.GdipResetClip(G);
+    }
 
     public void Line(float x1, float y1, float x2, float y2, uint argb, float width) =>
         Gdip.GdipDrawLine(G, Pen(argb, width), x1, y1, x2, y2);

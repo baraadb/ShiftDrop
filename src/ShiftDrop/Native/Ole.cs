@@ -129,9 +129,15 @@ static unsafe class DragImage
 {
     static nint _helper;
 
+    /// <summary>
+    /// Off: Explorer's drag thumbnail is hidden while the pointer is over the wheel, so it can't cover
+    /// the hub; the wheel shows its own preview of the file there instead.
+    /// </summary>
+    const bool ShowOverWheel = false;
+
     public static void Init()
     {
-        if (_helper != 0) return;
+        if (!ShowOverWheel || _helper != 0) return;
         var clsid = new Guid("4657278A-411B-11D2-839A-00C04FD918D0"); // CLSID_DragDropHelper
         var iid = new Guid("4657278B-411B-11D2-839A-00C04FD918D0");   // IID_IDropTargetHelper
         if (W.CoCreateInstance(in clsid, 0, 1 /*CLSCTX_INPROC_SERVER*/, in iid, out var p) == 0) _helper = p;
