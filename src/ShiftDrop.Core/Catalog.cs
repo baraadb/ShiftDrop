@@ -105,7 +105,8 @@ public static class Catalog
 
         // ---- tools: video ----
         Tool("vid.compress", "Compress", "ضغط", [FileKind.Video], MediaOps.VideoCompress, heavy: true);
-        Tool("vid.trim", "Trim", "قص", [FileKind.Video], MediaOps.VideoTrim, heavy: true, fields: TrimFields);
+        Editor("vid.trim", "Trim", "قص المدة", [FileKind.Video], MediaOps.VideoTrim, "trim");
+        Editor("vid.crop", "Crop", "قص الإطار", [FileKind.Video], MediaPreview.VideoCrop, "vcrop");
         Tool("vid.mute", "Remove sound", "حذف الصوت", [FileKind.Video], c => MediaOps.VideoCopy(c, "muted", true, false), heavy: true);
         Tool("vid.fast", "Speed ×2", "سرعة ×2", [FileKind.Video], c => MediaOps.VideoSpeed(c, 2), heavy: true);
         Tool("vid.slow", "Slow ×½", "بطء ×½", [FileKind.Video], c => MediaOps.VideoSpeed(c, 0.5), heavy: true);
@@ -117,11 +118,11 @@ public static class Catalog
 
         // ---- tools: audio ----
         Tool("aud.compress", "Compress", "ضغط", [FileKind.Audio], c => MediaOps.AudioTool(c, "compressed", null, null, smaller: true), heavy: true);
-        Tool("aud.trim", "Trim", "قص", [FileKind.Audio], MediaOps.AudioTrim, heavy: true, fields: TrimFields);
+        Editor("aud.trim", "Trim", "قص", [FileKind.Audio], MediaOps.AudioTrim, "trim");
         Tool("aud.split", "Split", "تقسيم", [FileKind.Audio], OfficeOps.SplitMedia, heavy: true, fields: SplitFields);
         Tool("aud.normalize", "Normalize", "توحيد الصوت", [FileKind.Audio],
             c => MediaOps.AudioTool(c, "normalized", null, ["-af", "loudnorm=I=-16:TP=-1.5:LRA=11", "-ar", "48000"]), heavy: true);
-        Tool("aud.mono", "Mono", "أحادي", [FileKind.Audio], c => MediaOps.AudioTool(c, "mono", null, ["-ac", "1"]), heavy: true);
+        Editor("aud.channels", "Channels", "القنوات", [FileKind.Audio], MediaPreview.AudioChannels, "channels");
         Tool("aud.strip", "Remove metadata", "حذف البيانات", [FileKind.Audio],
             c => MediaOps.AudioTool(c, "clean", null, ["-map_metadata", "-1"]), heavy: true);
 
@@ -161,6 +162,14 @@ public static class Catalog
             Id = $"{family}.to.{ext}", Group = OpGroup.Convert,
             En = ext.ToUpperInvariant(), Ar = ext.ToUpperInvariant(),
             Kinds = kinds, TargetExt = ext, Run = run, Needs = needs, Heavy = heavy,
+        });
+
+    /// <summary>A tool that opens an editor first (one file at a time).</summary>
+    static void Editor(string id, string en, string ar, FileKind[] kinds, Func<OpContext, Task> run, string editor) =>
+        All.Add(new Operation
+        {
+            Id = id, Group = OpGroup.Tool, En = en, Ar = ar, Kinds = kinds, Run = run,
+            Needs = Needs.FFmpeg, Heavy = true, MaxInputs = 1, Editor = editor,
         });
 
     static void Tool(string id, string en, string ar, FileKind[] kinds, Func<OpContext, Task> run,
