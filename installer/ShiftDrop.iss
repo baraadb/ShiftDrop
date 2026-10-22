@@ -61,6 +61,12 @@ arabic.Comment=اسحب ملفًا واضغط Shift
 Name: "autostart"; Description: "{cm:Autostart}"; GroupDescription: "{cm:Options}"
 Name: "sendto"; Description: "{cm:SendTo}"; GroupDescription: "{cm:Options}"
 
+[InstallDelete]
+; left over from 0.5 and older: the background-removal files (removed in 0.6)
+Type: files; Name: "{app}\tools\onnxruntime.dll"
+Type: files; Name: "{app}\tools\silueta.onnx"
+Type: files; Name: "{app}\tools\ONNXRUNTIME-LICENSE.txt"
+
 [Files]
 Source: "..\build\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 

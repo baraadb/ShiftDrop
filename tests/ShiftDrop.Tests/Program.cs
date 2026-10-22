@@ -9,7 +9,7 @@ var root = Path.Combine(Path.GetTempPath(), "shiftdrop-tests-" + Guid.NewGuid().
 Directory.CreateDirectory(root);
 Log.Folder = Path.Combine(root, "logs");
 var ff = FFmpeg.Locate();
-var services = new Services { FFmpeg = ff };
+var services = new Services { FFmpeg = ff, ResvgPath = Svg.Locate() };
 var queue = new JobQueue(services);
 int pass = 0, fail = 0, skip = 0;
 var only = args.Length > 0 ? args[0] : null;
@@ -167,6 +167,23 @@ await T("crop keeps format and size", async () =>
     var info = await ff.InfoAsync(o, default);
     Assert(info.Width == 100 && info.Height == 50, $"{info.Width}x{info.Height}");
     Assert(Catalog.For([jpg, png], OpGroup.Tool, services).All(op => op.Id != "img.crop"), "crop is for one picture");
+});
+await T("svg → png, jpg, crop (drawn by resvg)", async () =>
+{
+    NeedFf();
+    if (services.ResvgPath == null) throw new SkipException("resvg not found");
+    var d = Dir("svg"); var src = Path.Combine(d, "logo.svg");
+    File.WriteAllText(src, "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='32' viewBox='0 0 64 32'>" +
+        "<rect width='64' height='32' fill='#2563eb'/><circle cx='16' cy='16' r='10' fill='#fff'/></svg>");
+    var p = await Run("img.to.png", [src]);
+    Assert(Path.GetFileName(p.Outputs[0]) == "logo.png", p.Outputs[0]);
+    var (w, h) = Svg.PngSize(p.Outputs[0]);
+    Assert(w == Svg.MinSide && h == Svg.MinSide / 2, $"small svg drawn at {w}x{h}");
+    var j = await Run("img.to.jpg", [src]);
+    Assert(Path.GetFileName(j.Outputs[0]) == "logo.jpg", j.Outputs[0]);
+    var c = await Run("img.crop", [src], new() { ["crop"] = "0,0,512,512" });
+    var ci = await ff.InfoAsync(c.Outputs[0], default);
+    Assert(ci.Width == 512 && ci.Height == 512, $"crop {ci.Width}x{ci.Height}");
 });
 await T("gif → png, mp4", async () => { NeedFf(); await Run("img.to.png", [gif]); var j = await Run("gif.to.mp4", [gif]); Assert((await ff.InfoAsync(j.Outputs[0], default)).HasVideo, "no video"); });
 foreach (var id in new[] { "img.compress", "img.half", "img.rotate", "img.gray", "img.strip" })

@@ -19,6 +19,8 @@ public sealed class Services
     public required FFmpeg FFmpeg { get; init; }
     public IDocRenderer? DocRenderer { get; set; }
     public string? SevenZipPath { get; set; }
+    /// <summary>resvg, which draws SVG pictures to PNG.</summary>
+    public string? ResvgPath { get; set; }
 
     public bool Has(Needs n) =>
         (!n.HasFlag(Needs.FFmpeg) || FFmpeg.Available) &&

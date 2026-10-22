@@ -134,9 +134,18 @@ public sealed class JobQueue(Services services)
                 job.Progress = (index + Math.Clamp(p, 0, 1)) / count;
                 Changed?.Invoke(job);
             });
+            // SVG pictures become PNG first, so every picture tool works on them
+            var work = inputs;
+            if (inputs.Any(Engines.Svg.IsSvg))
+            {
+                var list = new List<string>();
+                foreach (var i in inputs)
+                    list.Add(Engines.Svg.IsSvg(i) ? await Engines.Svg.ToPngAsync(services.ResvgPath, i, tmpDir, job.Cts.Token) : i);
+                work = list;
+            }
             var ctx = new OpContext
             {
-                Inputs = inputs, OutDir = outDir, TempDir = tmpDir, Services = services,
+                Inputs = work, OutDir = outDir, TempDir = tmpDir, Services = services,
                 Progress = reporter, Token = job.Cts.Token, Options = job.Options,
             };
             await job.Op.Run(ctx);
