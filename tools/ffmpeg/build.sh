@@ -24,11 +24,14 @@ mkdir -p "$SRC" "$PREFIX/include" "$PREFIX/lib/pkgconfig" "$OUT"
 JOBS="$(nproc)"
 
 HOST=x86_64-w64-mingw32
-export CC="$HOST-gcc-posix" CXX="$HOST-g++-posix" AR="$HOST-ar" RANLIB="$HOST-ranlib" STRIP="$HOST-strip"
+# CI builds inside the toolchain image of BtbN/FFmpeg-Builds (GCC 16, the compiler of the FFmpeg
+# ShiftDrop used before); Ubuntu's mingw-w64 (GCC 13, "-posix" names) works too, a little slower.
+if command -v "$HOST-gcc-posix" >/dev/null; then SUFFIX=-posix; else SUFFIX=; fi
+export CC="$HOST-gcc$SUFFIX" CXX="$HOST-g++$SUFFIX" AR="$HOST-ar" RANLIB="$HOST-ranlib" STRIP="$HOST-strip"
 export NM="$HOST-nm" WINDRES="$HOST-windres" LD="$HOST-ld"
 # -O2 is what the libraries tune for; their hot paths are hand-written assembly chosen at run time,
 # so the build runs at full speed on every CPU from the last 15 years.
-export CFLAGS="-O2 -pipe -I$PREFIX/include -D_FORTIFY_SOURCE=0"
+export CFLAGS="-O2 -pipe -I$PREFIX/include -D_FORTIFY_SOURCE=0 -fno-semantic-interposition"
 export CXXFLAGS="$CFLAGS"
 export LDFLAGS="-L$PREFIX/lib -static-libgcc -static-libstdc++"
 export PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig"
@@ -49,7 +52,7 @@ fetch() { # name url tag commit
 # a release tarball, checked by sha256
 fetch_tar() { # name url sha256
     local file="$SRC/$(basename "$2")" dir="$SRC/$1"
-    [ -f "$file" ] || curl -fsSL -o "$file" "$2"
+    [ -f "$file" ] || curl -fsSL -o "$file" "$2" || python3 -c "import sys, urllib.request; urllib.request.urlretrieve(sys.argv[1], sys.argv[2])" "$2" "$file"
     echo "$3  $file" | sha256sum -c --quiet - || { echo "$1: checksum mismatch" >&2; exit 1; }
     if [ ! -d "$dir" ]; then mkdir -p "$dir"; tar -xf "$file" -C "$dir" --strip-components=1; fi
 }
@@ -76,7 +79,7 @@ set(CMAKE_C_COMPILER $CC)
 set(CMAKE_CXX_COMPILER $CXX)
 set(CMAKE_RC_COMPILER $WINDRES)
 set(CMAKE_ASM_NASM_COMPILER nasm)
-set(CMAKE_FIND_ROOT_PATH $PREFIX /usr/$HOST)
+set(CMAKE_FIND_ROOT_PATH $PREFIX $($CC -print-sysroot) /usr/$HOST)
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
@@ -217,13 +220,19 @@ fi
 # -Wl,-Bstatic: every library is taken from its .a (on Windows the system DLLs are .a import
 # libraries too), so the threads and C++ runtimes end up inside our DLLs and nothing else is needed.
 log FFmpeg
+# FFmpeg is taken from its main branch, like the build ShiftDrop used before: a pinned commit,
+# or (monthly rebuild) the newest one, which then has to pass the tests and the speed check.
+rm -rf "$SRC/ffmpeg"; mkdir -p "$SRC/ffmpeg"
+git -C "$SRC/ffmpeg" init -q
+git -C "$SRC/ffmpeg" remote add origin https://github.com/FFmpeg/FFmpeg
 if [ "${FFMPEG_FOLLOW_BRANCH:-}" = 1 ]; then
-    rm -rf "$SRC/ffmpeg"
-    git clone -q --depth 1 --branch "$FFMPEG_BRANCH" https://github.com/FFmpeg/FFmpeg "$SRC/ffmpeg"
-    FFMPEG_TAG="$FFMPEG_BRANCH"; FFMPEG_COMMIT="$(git -C "$SRC/ffmpeg" rev-parse --short=12 HEAD)"
+    git -C "$SRC/ffmpeg" fetch -q --depth 1 origin "$FFMPEG_BRANCH"
 else
-    fetch ffmpeg https://github.com/FFmpeg/FFmpeg "$FFMPEG_TAG" "$FFMPEG_COMMIT"
+    git -C "$SRC/ffmpeg" fetch -q --depth 1 origin "$FFMPEG_COMMIT"
 fi
+git -C "$SRC/ffmpeg" -c advice.detachedHead=false checkout -q FETCH_HEAD
+FFMPEG_COMMIT="$(git -C "$SRC/ffmpeg" rev-parse HEAD)"
+FFMPEG_TAG="$FFMPEG_BRANCH $(git -C "$SRC/ffmpeg" log -1 --format=%cs)"
 FF="$SRC/ffmpeg"; DEST="$WORK/ffmpeg-install"
 rm -rf "$DEST"; mkdir -p "$WORK/ffmpeg-build"
 cd "$WORK/ffmpeg-build"
@@ -239,7 +248,7 @@ cd "$WORK/ffmpeg-build"
     --extra-cflags="-I$PREFIX/include" \
     --extra-ldflags="-L$PREFIX/lib -static-libgcc -static-libstdc++ -Wl,-Bstatic" \
     --extra-libs="-lstdc++ -lwinpthread" \
-    --extra-version=shiftdrop >"$WORK/configure.log" 2>&1 || { tail -40 "$WORK/configure.log"; tail -40 ffbuild/config.log; exit 1; }
+    --extra-version="shiftdrop-${FFMPEG_COMMIT:0:10}" >"$WORK/configure.log" 2>&1 || { tail -40 "$WORK/configure.log"; tail -40 ffbuild/config.log; exit 1; }
 make -s -j"$JOBS" >/dev/null
 make -s install >/dev/null
 
@@ -264,6 +273,7 @@ done
 {
     echo "ShiftDrop FFmpeg build"
     echo "FFmpeg $FFMPEG_TAG ($FFMPEG_COMMIT) - LGPL 2.1 or later - https://ffmpeg.org"
+    echo "Compiler: $($CC --version | head -1)"
     echo "dav1d $DAV1D_TAG · libaom $AOM_TAG · SVT-AV1 $SVTAV1_TAG · libvpx $VPX_TAG · libwebp $WEBP_TAG"
     echo "opus $OPUS_TAG · ogg $OGG_TAG · vorbis $VORBIS_TAG · LAME $LAME_VERSION · zlib $ZLIB_TAG"
     echo "nv-codec-headers $NVCODEC_TAG · AMF $AMF_TAG · Intel VPL $VPL_TAG"
@@ -273,7 +283,12 @@ done
     sed -n 's/^#define FFMPEG_CONFIGURATION "\(.*\)"/\1/p' "$WORK/ffmpeg-build/config.h"
 } > "$PKG/ffmpeg-build.txt"
 cp "$FF/COPYING.LGPLv2.1" "$PKG/FFMPEG-LICENSE.txt"
+echo "$FFMPEG_COMMIT" > "$OUT/ffmpeg-commit.txt"
 
-(cd "$PKG" && rm -f ../ffmpeg-shiftdrop-win64.zip && zip -q -9 -r ../ffmpeg-shiftdrop-win64.zip .)
+(cd "$PKG" && rm -f ../ffmpeg-shiftdrop-win64.zip && python3 -c "
+import zipfile, os
+with zipfile.ZipFile('../ffmpeg-shiftdrop-win64.zip', 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+    for f in sorted(os.listdir('.')): z.write(f)
+")
 du -sh "$PKG" "$OUT/ffmpeg-shiftdrop-win64.zip"
 ls -l "$PKG"

@@ -3,8 +3,8 @@ name: tools
 # ShiftDrop's own FFmpeg (and resvg for SVG). Built from pinned sources, compared with the previous
 # FFmpeg on Windows (speed and formats), then published as a pre-release named tools-YYYY.MM.DD.
 # The app installer downloads the release named in installer/tools.txt.
-# Once a month it rebuilds FFmpeg from its release branch (security fixes), and when the tests and the
-# speed check pass, moves the pin.
+# Once a month it rebuilds with FFmpeg's newest commit, and when the tests and the speed check pass,
+# moves the pin (installer/tools.txt and the FFmpeg commit in versions.env).
 
 on:
   push:
@@ -24,19 +24,14 @@ concurrency:
 jobs:
   ffmpeg:
     runs-on: ubuntu-24.04
+    # the cross-compiler image of BtbN/FFmpeg-Builds: GCC 16 for Windows, the same compiler as the
+    # FFmpeg build ShiftDrop used before (newer GCC makes noticeably faster code than Ubuntu's GCC 13)
+    container: ghcr.io/btbn/ffmpeg-builds/base-win64:latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build tools
-        timeout-minutes: 15
-        run: |
-          for try in 1 2 3; do
-            sudo timeout 300 apt-get update -qq && \
-            sudo DEBIAN_FRONTEND=noninteractive timeout 400 apt-get install -y -qq --no-install-recommends \
-              mingw-w64 nasm meson ninja-build cmake pkg-config autoconf automake libtool zip >/dev/null && break
-            echo "apt failed (try $try), retrying"; sleep 20
-          done
-          x86_64-w64-mingw32-gcc-posix --version | head -1
+      - name: Compiler
+        run: x86_64-w64-mingw32-gcc --version | head -1
 
       # the libraries change only when versions.env or the script do
       - uses: actions/cache@v4
@@ -44,9 +39,9 @@ jobs:
           path: |
             ffbuild/prefix
             ffbuild/src/*.tar.gz
-          key: ffmpeg-libs-${{ hashFiles('tools/ffmpeg/versions.env', 'tools/ffmpeg/build.sh') }}
+          key: ffmpeg-libs-gcc16-${{ hashFiles('tools/ffmpeg/versions.env', 'tools/ffmpeg/build.sh') }}
 
-      # the monthly rebuild follows FFmpeg's release branch, where security fixes land between point releases
+      # the monthly rebuild takes FFmpeg's newest commit (fixes and speed-ups); it ships only if the tests and the speed check pass
       - name: Build FFmpeg
         env:
           FFMPEG_FOLLOW_BRANCH: ${{ github.event_name == 'schedule' && '1' || '' }}
@@ -55,7 +50,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ffmpeg
-          path: ffbuild/out/ffmpeg-shiftdrop-win64.zip
+          path: |
+            ffbuild/out/ffmpeg-shiftdrop-win64.zip
+            ffbuild/out/ffmpeg-commit.txt
 
   resvg:
     runs-on: windows-latest
@@ -149,7 +146,9 @@ jobs:
         shell: pwsh
         run: |
           "${{ steps.publish.outputs.tag }}" | Set-Content -NoNewline installer/tools.txt
+          $commit = (Get-Content build/artifacts/ffmpeg/ffmpeg-commit.txt -Raw).Trim()
+          (Get-Content tools/ffmpeg/versions.env) -replace '^(FFMPEG_BRANCH=\S+;\s+FFMPEG_COMMIT=)[0-9a-f]+', "`${1}$commit" | Set-Content tools/ffmpeg/versions.env
           git config user.name 'ShiftDrop CI'; git config user.email 'ci@users.noreply.github.com'
-          git add installer/tools.txt
+          git add installer/tools.txt tools/ffmpeg/versions.env
           git commit -m "Tools: ${{ steps.publish.outputs.tag }} (monthly rebuild)"
           git push origin HEAD:main
