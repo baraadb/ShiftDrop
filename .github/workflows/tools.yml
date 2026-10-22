@@ -28,9 +28,15 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build tools
+        timeout-minutes: 15
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq mingw-w64 nasm meson ninja-build cmake pkg-config autoconf automake libtool zip >/dev/null
+          for try in 1 2 3; do
+            sudo timeout 300 apt-get update -qq && \
+            sudo DEBIAN_FRONTEND=noninteractive timeout 400 apt-get install -y -qq --no-install-recommends \
+              mingw-w64 nasm meson ninja-build cmake pkg-config autoconf automake libtool zip >/dev/null && break
+            echo "apt failed (try $try), retrying"; sleep 20
+          done
+          x86_64-w64-mingw32-gcc-posix --version | head -1
 
       # the libraries change only when versions.env or the script do
       - uses: actions/cache@v4
