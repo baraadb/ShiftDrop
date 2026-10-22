@@ -47,7 +47,7 @@ public static class Icons
         var name = dot >= 0 ? id[(dot + 1)..] : id;
         return name switch
         {
-            "crop" => "crop", "nobg" => "wand", "compress" => "compress", "half" => "half", "rotate" => "rotate",
+            "crop" => "crop", "compress" => "compress", "half" => "half", "rotate" => "rotate",
             "gray" => "contrast", "strip" => "tag", "onepdf" => "doc", "trim" => "scissors", "mute" => "mute",
             "fast" => "fast", "slow" => "slow", "snapshot" => "camera", "join" or "merge" => "link",
             "split" => "split", "normalize" => "wave", "mono" => "speaker", "extract" => id.StartsWith("arc") ? "box" : "pages",

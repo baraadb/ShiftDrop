@@ -12,7 +12,7 @@
 
 ShiftDrop is a desktop (Win32) utility. It needs full trust to watch for file drags in File Explorer
 (a low-level mouse hook), to show its drop wheel over other windows, and to run its bundled
-converters (FFmpeg, PDFium, ONNX Runtime) on the files the user drops. All processing is local;
+converters (FFmpeg, PDFium) on the files the user drops. All processing is local;
 no data is collected or sent.
 
 ## Age rating questionnaire
@@ -39,7 +39,7 @@ Drag a file in File Explorer, press Shift, and a wheel of formats opens under yo
 
 • One gesture for everything: Shift for formats, Ctrl for tools, Alt for actions
 • The wheel only shows what fits the file you're holding
-• Images: JPG, PNG, WebP, AVIF, TIFF, BMP, ICO, PDF — crop, remove background, compress, resize, rotate, remove location data
+• Images: JPG, PNG, WebP, AVIF, TIFF, BMP, ICO, PDF — crop, compress, resize, rotate, remove location data
 • Video and audio: MP4, MOV, MKV, WebM, GIF, MP3, M4A, WAV, FLAC and more — trim, compress, mute, speed up, snapshot, join
 • PDF: to pictures, text or Word; merge, split, extract and rotate pages
 • Documents: Word, Markdown and text to PDF, with proper Arabic
@@ -54,7 +54,7 @@ Free and open source (MIT).
 **Features (one per line):**
 Drag + Shift opens a wheel of formats
 Ctrl for tools, Alt for actions
-Crop pictures and remove backgrounds offline
+Crop pictures and trim videos offline
 Convert images, video, audio, PDF and documents
 Merge PDFs, join videos, many pictures into one PDF
 Share through the Windows share sheet
@@ -62,11 +62,11 @@ Originals are never touched or overwritten
 No account, no upload, works offline
 English and Arabic, light and dark
 
-**Keywords:** file converter, image converter, video converter, pdf, drag and drop, background remover, crop, offline
+**Keywords:** file converter, image converter, video converter, pdf, drag and drop, crop, offline
 
 **Screenshot captions:**
 1. Drag a file, press Shift — the formats that fit your file
-2. Ctrl for tools — crop, remove background, compress, rotate
+2. Ctrl for tools — crop, trim, compress, rotate
 3. Alt for actions — copy path, share, copy or move, ZIP
 
 ---
@@ -85,7 +85,7 @@ ShiftDrop يحوّل كل سحبة إلى تحويل.
 
 • حركة واحدة لكل شيء: Shift للصيغ، وCtrl للأدوات، وAlt للإجراءات
 • العجلة تعرض فقط ما يناسب ملفك
-• الصور: JPG وPNG وWebP وAVIF وTIFF وBMP وICO وPDF، مع قص الصورة وإزالة الخلفية والضغط والتصغير والتدوير وحذف بيانات الموقع
+• الصور: JPG وPNG وWebP وAVIF وTIFF وBMP وICO وPDF، مع قص الصورة والضغط والتصغير والتدوير وحذف بيانات الموقع
 • الفيديو والصوت: MP4 وMOV وMKV وWebM وGIF وMP3 وM4A وWAV وFLAC وغيرها، مع القص والضغط وحذف الصوت والتسريع واللقطة والدمج
 • PDF: إلى صور أو نص أو Word، مع الدمج والفصل واستخراج الصفحات وتدويرها
 • المستندات: من Word وMarkdown والنص إلى PDF بعربية سليمة
@@ -100,7 +100,7 @@ ShiftDrop يحوّل كل سحبة إلى تحويل.
 **المميزات (سطر لكل ميزة):**
 سحب مع Shift يفتح عجلة الصيغ
 Ctrl للأدوات، وAlt للإجراءات
-قص الصور وإزالة الخلفية بدون إنترنت
+قص الصور والفيديو بدون إنترنت
 تحويل الصور والفيديو والصوت وPDF والمستندات
 دمج PDF، ودمج الفيديو، وعدة صور في PDF واحد
 مشاركة عبر نافذة المشاركة في Windows
@@ -108,4 +108,4 @@ Ctrl للأدوات، وAlt للإجراءات
 بلا حساب، وبلا رفع، ويعمل بدون إنترنت
 بالعربية والإنجليزية، بمظهر فاتح وداكن
 
-**كلمات مفتاحية:** محول ملفات، تحويل صور، تحويل فيديو، PDF، سحب وإفلات، إزالة الخلفية، قص الصور، بدون إنترنت
+**كلمات مفتاحية:** محول ملفات، تحويل صور، تحويل فيديو، PDF، سحب وإفلات، قص الصور، بدون إنترنت

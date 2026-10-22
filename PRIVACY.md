@@ -7,7 +7,7 @@ ShiftDrop converts and edits files **on your computer**. It has no account, no a
 ## What ShiftDrop does with your files
 
 - The files you drop on the wheel are read on your PC and the results are saved on your PC (next to the original, in Downloads, or in a folder you choose).
-- Files are never uploaded anywhere. Background removal, PDF, image, video and audio work all run locally.
+- Files are never uploaded anywhere. PDF, image, video and audio work all run locally.
 - A small log of what ShiftDrop did (for example "start", "update check failed") is kept in `%LOCALAPPDATA%\ShiftDrop\logs` so you can send it with a bug report if you want. It never leaves your PC on its own.
 
 ## When ShiftDrop goes online
@@ -29,7 +29,7 @@ Questions: open an issue at https://github.com/baraadb/ShiftDrop/issues.
 
 ShiftDrop يعالج الملفات **على جهازك فقط**. لا يوجد حساب، ولا إعلانات، ولا جمع لأي بيانات.
 
-- الملفات لا تُرفع إلى أي مكان، وكل التحويلات وإزالة الخلفية تتم على جهازك.
+- الملفات لا تُرفع إلى أي مكان، وكل التحويلات تتم على جهازك.
 - يحفظ البرنامج سجلًا صغيرًا لعملياته داخل جهازك فقط.
 - نسخة ملف التثبيت تسأل GitHub مرة يوميًا عن وجود تحديث (ويمكن إيقاف ذلك من الإعدادات). نسخة متجر مايكروسوفت يحدّثها المتجر.
 - الروابط التي تضغطها (الموقع، الدعم عبر PayPal) تُفتح في متصفحك.

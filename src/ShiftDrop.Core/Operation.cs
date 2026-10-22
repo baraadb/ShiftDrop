@@ -5,7 +5,7 @@ namespace ShiftDrop.Core;
 public enum OpGroup { Convert, Tool, Action }
 
 [Flags]
-public enum Needs { None = 0, FFmpeg = 1, Pdfium = 2, DocRenderer = 4, Background = 8 }
+public enum Needs { None = 0, FFmpeg = 1, Pdfium = 2, DocRenderer = 4 }
 
 /// <summary>A value a tool asks for before it runs (trim times, page ranges...).</summary>
 public sealed record InputField(string Key, string En, string Ar, string Default)
@@ -23,8 +23,7 @@ public sealed class Services
     public bool Has(Needs n) =>
         (!n.HasFlag(Needs.FFmpeg) || FFmpeg.Available) &&
         (!n.HasFlag(Needs.Pdfium) || Pdfium.Available) &&
-        (!n.HasFlag(Needs.DocRenderer) || DocRenderer != null) &&
-        (!n.HasFlag(Needs.Background) || Ops.MediaOps.BackgroundAvailable);
+        (!n.HasFlag(Needs.DocRenderer) || DocRenderer != null);
 }
 
 public sealed class OpContext

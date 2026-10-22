@@ -1,4 +1,4 @@
-﻿# ShiftDrop installer: builds from source, adds FFmpeg + PDFium + ONNX Runtime, installs for the current user (no admin).
+﻿# ShiftDrop installer: builds from source, adds FFmpeg + PDFium, installs for the current user (no admin).
 # Run it with Install.cmd (double-click) or:  powershell -ExecutionPolicy Bypass -File installer\Install-ShiftDrop.ps1
 param(
     [switch]$NoLaunch,    # don't start ShiftDrop at the end
@@ -20,9 +20,6 @@ $LogFile   = Join-Path $Root 'build\install.log'
 
 $FfmpegUrl = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip'
 $PdfiumUrl = 'https://github.com/bblanchon/pdfium-binaries/releases/latest/download/pdfium-win-x64.tgz'
-$OnnxVersion = '1.23.2'
-$OnnxUrl   = "https://github.com/microsoft/onnxruntime/releases/download/v$OnnxVersion/onnxruntime-win-x64-$OnnxVersion.zip"
-$ModelUrl  = 'https://github.com/danielgatis/rembg/releases/download/v0.0.0/silueta.onnx'
 
 New-Item -ItemType Directory -Force -Path $Cache, (Split-Path $LogFile) | Out-Null
 Start-Transcript -Path $LogFile -Force | Out-Null
@@ -132,26 +129,6 @@ try {
     Remove-Item -Recurse -Force $tmp
 } catch {
     Fail "Could not get PDFium: $($_.Exception.Message)" 'تعذّر تنزيل PDFium. تأكد من الاتصال بالإنترنت وأعد المحاولة.'
-}
-
-# Optional: background removal (ONNX Runtime + the U2-Net "silueta" model). ShiftDrop works without it.
-Say 'Getting ONNX Runtime and the background model...' 'تنزيل ONNX Runtime ونموذج إزالة الخلفية...'
-try {
-    $zip = Download $OnnxUrl "onnxruntime-win-x64-$OnnxVersion.zip"
-    $tmp = Join-Path $Cache 'onnx-x'
-    if (Test-Path $tmp) { Remove-Item -Recurse -Force $tmp }
-    New-Item -ItemType Directory -Force -Path $tmp | Out-Null
-    & tar.exe -xf $zip -C $tmp
-    $dll = Get-ChildItem -Path $tmp -Recurse -Filter 'onnxruntime.dll' | Select-Object -First 1
-    if (-not $dll) { throw 'onnxruntime.dll not found in the download' }
-    Copy-Item $dll.FullName $Tools -Force -ErrorAction Stop
-    $lic = Get-ChildItem -Path $tmp -Recurse -Filter 'LICENSE*' | Select-Object -First 1
-    if ($lic) { Copy-Item $lic.FullName (Join-Path $Tools 'ONNXRUNTIME-LICENSE.txt') -Force }
-    Remove-Item -Recurse -Force $tmp
-    $model = Download $ModelUrl 'silueta.onnx'
-    Copy-Item $model (Join-Path $Tools 'silueta.onnx') -Force -ErrorAction Stop
-} catch {
-    Write-Host "    Background removal will be off: $($_.Exception.Message)" -ForegroundColor Yellow
 }
 
 if ($ToolsOnly -or $NoInstall) {

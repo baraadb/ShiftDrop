@@ -18,7 +18,6 @@ static class Preview
         W.OleInitialize(IntPtr.Zero);
         var tools = Path.Combine(AppContext.BaseDirectory, "tools");
         Pdfium.SearchDirs.Add(tools);
-        Onnx.SearchDirs.Add(tools);
         var services = new Services { FFmpeg = FFmpeg.Locate(tools, AppContext.BaseDirectory) };
         AppActions.Register(null!); // the actions only use the app when they run
 

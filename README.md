@@ -32,7 +32,7 @@ It is free, open source, and everything happens **on your PC**.
 - **One gesture for everything.** Drag + <kbd>Shift</kbd> for formats, <kbd>Ctrl</kbd> for tools, <kbd>Alt</kbd> for actions.
 - **The wheel knows your file.** It only shows what makes sense for what you're holding: image formats for photos, video formats for clips, and so on.
 - **Many files at once.** Drag a whole selection; each file gets its own copy, or they are combined when that's the point (merge PDFs, join videos, pictures into one PDF).
-- **Images:** convert, crop, remove the background, compress, resize, rotate, strip location and camera data.
+- **Images:** convert, crop, compress, resize, rotate, strip location and camera data.
 - **Video and audio:** convert, trim on a timeline (waveform and frames), crop the picture, split, compress, mute, speed up, slow down, grab a frame, make a GIF, extract the sound, mono/stereo with levels.
 - **PDF and documents:** PDF to pictures, text, Word, Excel, PowerPoint or EPUB; merge, split, extract pages; Word, RTF, HTML, Markdown and text to PDF or EPUB with proper Arabic.
 - **Spreadsheets without Office:** XLSX, ODS, CSV and TSV into each other, and to a clean PDF table.
@@ -62,7 +62,7 @@ It is free, open source, and everything happens **on your PC**.
 2. Run it. It installs for your account only: no administrator rights, nothing else to download.
 3. ShiftDrop starts and sits in the tray next to the clock. That's it.
 
-The installer contains everything (the app, the .NET runtime, FFmpeg, PDFium and the background-removal model), so it also works on a PC without internet. ShiftDrop checks GitHub for updates once a day and installs them with one click; you can turn that off in Settings.
+The installer contains everything (the app, the .NET runtime, FFmpeg and PDFium), so it also works on a PC without internet. ShiftDrop checks GitHub for updates once a day and installs them with one click; you can turn that off in Settings.
 
 See the [code signing policy](#code-signing-policy).
 
@@ -73,7 +73,7 @@ See the [code signing policy](#code-signing-policy).
 | Do this | You get |
 | --- | --- |
 | Drag a file, then press <kbd>Shift</kbd> | The **formats** wheel for that file |
-| While the wheel is open, press <kbd>Ctrl</kbd> | **Tools**: crop, remove background, compress, trim, rotate, merge… |
+| While the wheel is open, press <kbd>Ctrl</kbd> | **Tools**: crop, compress, trim, rotate, merge… |
 | While the wheel is open, press <kbd>Alt</kbd> | **Actions**: copy path, terminal here, share, copy to, move to, properties, ZIP |
 | Drop on a slot | It runs; a progress card shows in the corner and the new file lands next to the original |
 | Drop in the middle or outside the wheel | Nothing happens |
@@ -81,13 +81,13 @@ See the [code signing policy](#code-signing-policy).
 
 Once the wheel is open you can let go of the keys. The keys themselves can be changed in Settings.
 
-**Crop** (pictures and videos) opens a small editor: drag the frame or its corners, pick a ratio (Free, 1:1, 4:3, 3:2, 16:9, 9:16), press <kbd>Enter</kbd>. **Trim** shows the waveform (and frames for videos): drag the two ends, play the selection, or cut the quiet ends automatically. **Remove background** finds the subject and saves a transparent PNG, fully offline.
+**Crop** (pictures and videos) opens a small editor: drag the frame or its corners, pick a ratio (Free, 1:1, 4:3, 3:2, 16:9, 9:16), press <kbd>Enter</kbd>. **Trim** shows the waveform (and frames for videos): drag the two ends, play the selection, or cut the quiet ends automatically.
 
 ## What it converts
 
 | Files | Convert to | Tools |
 | --- | --- | --- |
-| **Images** — JPG, PNG, WebP, HEIC, AVIF, TIFF, BMP, ICO, SVG | JPG, PNG, WebP, AVIF, TIFF, BMP, ICO, PDF | Crop, remove background, compress, half size, rotate, black & white, remove metadata, many pictures → one PDF, pictures → slides (PPTX) |
+| **Images** — JPG, PNG, WebP, HEIC, AVIF, TIFF, BMP, ICO, SVG | JPG, PNG, WebP, AVIF, TIFF, BMP, ICO, PDF | Crop, compress, half size, rotate, black & white, remove metadata, many pictures → one PDF, pictures → slides (PPTX) |
 | **GIF** | MP4, MOV, WebM, PNG, JPG, WebP | |
 | **Video** — MP4, MOV, MKV, WebM, AVI, WMV… | MP4, MOV, MKV, WebM, AVI, WMV, GIF, MP3, M4A | Compress, trim, crop, split, remove sound, speed ×2, slow ×½, rotate, snapshot, remove metadata, join |
 | **Audio** — MP3, M4A, WAV, FLAC, OGG, Opus, AIFF, WMA | any of these | Compress, trim, split, normalize, channels (mono / stereo, levels), remove metadata |
@@ -160,7 +160,7 @@ Starring the repository, reporting bugs and suggesting formats help just as much
 
 ## Build from source
 
-You need Windows 10/11 and nothing else; the script fetches the .NET 10 SDK, FFmpeg, PDFium and ONNX Runtime by itself.
+You need Windows 10/11 and nothing else; the script fetches the .NET 10 SDK, FFmpeg and PDFium by itself.
 
 ```text
 Install.cmd          build and install for the current user
@@ -171,13 +171,13 @@ For development:
 
 ```text
 dotnet build src/ShiftDrop                        # the Windows app
-dotnet run --project tests/ShiftDrop.Tests         # engine tests (SHIFTDROP_FFMPEG_DIR, _PDFIUM_DIR, _ONNX_DIR)
+dotnet run --project tests/ShiftDrop.Tests         # engine tests (SHIFTDROP_FFMPEG_DIR, _PDFIUM_DIR)
 dotnet build src/ShiftDrop -p:AppTfm=net10.0       # compile check on Linux or macOS
 ```
 
 | Folder | What's inside |
 | --- | --- |
-| `src/ShiftDrop.Core` | Cross-platform engines: the format catalogue, a job queue with atomic output, FFmpeg, PDFium, ONNX Runtime, documents, subtitles, archives |
+| `src/ShiftDrop.Core` | Cross-platform engines: the format catalogue, a job queue with atomic output, FFmpeg, PDFium, documents, subtitles, archives |
 | `src/ShiftDrop` | The Windows app in plain Win32: mouse hook, OLE drop-target wheel drawn with GDI+, tray, progress cards, crop editor, share sheet, settings |
 | `tests/ShiftDrop.Tests` | End-to-end tests that make their own sample files |
 | `installer` | Build-and-install script, Inno Setup script, uninstaller |
@@ -196,7 +196,7 @@ The Microsoft Store version is signed by Microsoft.
 
 ## Credits
 
-ShiftDrop stands on great open-source work: [FFmpeg](https://ffmpeg.org), [PDFium](https://pdfium.googlesource.com/pdfium), [ONNX Runtime](https://onnxruntime.ai), the [U²-Net](https://github.com/xuebinqin/U-2-Net) model via [rembg](https://github.com/danielgatis/rembg), and [.NET](https://dotnet.microsoft.com). Details in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+ShiftDrop stands on great open-source work: [FFmpeg](https://ffmpeg.org), [PDFium](https://pdfium.googlesource.com/pdfium), and [.NET](https://dotnet.microsoft.com). Details in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ShiftDrop is an independent project inspired by the drag-to-convert idea of Tangerine for Mac. It shares no code, name or assets with it.
 
@@ -224,7 +224,7 @@ Licence: [MIT](LICENSE).
 - **حركة واحدة لكل شيء:** سحب مع <kbd>Shift</kbd> للصيغ، و<kbd>Ctrl</kbd> للأدوات، و<kbd>Alt</kbd> للإجراءات.
 - **العجلة تعرف ملفك:** تعرض فقط ما يناسبه؛ صيغ صور للصور، وصيغ فيديو للفيديو، وهكذا.
 - **عدة ملفات مرة واحدة:** كل ملف يأخذ نسخته، أو تُدمج معًا حين يكون هذا هو المطلوب (دمج PDF، دمج فيديو، عدة صور في PDF واحد).
-- **الصور:** تحويل، **قص الصورة**، **إزالة الخلفية**، ضغط، تصغير، تدوير، وحذف بيانات الموقع والكاميرا.
+- **الصور:** تحويل، **قص الصورة**، ضغط، تصغير، تدوير، وحذف بيانات الموقع والكاميرا.
 - **الفيديو والصوت:** تحويل، قص المدة على شريط زمني (موجة الصوت وإطارات الفيديو)، قص إطار الفيديو، تقسيم لأجزاء، ضغط، حذف الصوت، تسريع، إبطاء، لقطة من الفيديو، تحويل إلى GIF، استخراج الصوت، وأحادي أو ستيريو مع مستوى كل جهة.
 - **PDF والمستندات:** من PDF إلى صور أو نص أو Word أو Excel أو PowerPoint أو EPUB، مع الدمج والفصل واستخراج الصفحات؛ ومن Word وRTF وHTML وMarkdown والنص إلى PDF أو EPUB بعربية سليمة.
 - **جداول بدون Office:** بين XLSX وODS وCSV وTSV، وإلى PDF بجدول مرتب.
@@ -248,7 +248,7 @@ Licence: [MIT](LICENSE).
 | الحركة | النتيجة |
 | --- | --- |
 | اسحب ملفًا ثم اضغط <kbd>Shift</kbd> | عجلة **الصيغ** المناسبة للملف |
-| والعجلة مفتوحة اضغط <kbd>Ctrl</kbd> | عجلة **الأدوات**: قص، إزالة الخلفية، ضغط، تدوير، دمج... |
+| والعجلة مفتوحة اضغط <kbd>Ctrl</kbd> | عجلة **الأدوات**: قص، ضغط، تدوير، دمج... |
 | والعجلة مفتوحة اضغط <kbd>Alt</kbd> | عجلة **الإجراءات**: نسخ المسار، الطرفية هنا، مشاركة، نسخ إلى، نقل إلى، الخصائص، ZIP |
 | أفلت على خانة | تبدأ العملية، وتظهر بطاقة تقدّم في الزاوية، والملف الجديد بجانب الأصل |
 | أفلت في المنتصف أو خارج العجلة | إلغاء |
@@ -256,13 +256,13 @@ Licence: [MIT](LICENSE).
 
 بعد ما تفتح العجلة تقدر تترك الأزرار، وتقدر تغيّر الأزرار نفسها من الإعدادات.
 
-**قص الصورة والفيديو** يفتح محررًا صغيرًا: اسحب الإطار أو زواياه، واختر النسبة (حر، 1:1، 4:3، 3:2، 16:9، 9:16)، ثم اضغط Enter. و**قص المدة** يعرض موجة الصوت (وإطارات الفيديو): اسحب الطرفين، وشغّل الجزء المحدد، أو اقطع الصمت من الأطراف تلقائيًا. و**إزالة الخلفية** تحدد العنصر الأساسي وتحفظ صورة PNG شفافة، كل ذلك على جهازك.
+**قص الصورة والفيديو** يفتح محررًا صغيرًا: اسحب الإطار أو زواياه، واختر النسبة (حر، 1:1، 4:3، 3:2، 16:9، 9:16)، ثم اضغط Enter. و**قص المدة** يعرض موجة الصوت (وإطارات الفيديو): اسحب الطرفين، وشغّل الجزء المحدد، أو اقطع الصمت من الأطراف تلقائيًا.
 
 ## الصيغ المدعومة
 
 | الملفات | التحويل إلى | الأدوات |
 | --- | --- | --- |
-| **صور**: JPG وPNG وWebP وHEIC وAVIF وTIFF وBMP وICO وSVG | JPG، PNG، WebP، AVIF، TIFF، BMP، ICO، PDF | قص، إزالة الخلفية، ضغط، نصف الحجم، تدوير، أبيض وأسود، حذف البيانات، عدة صور في PDF واحد، عرض شرائح PPTX |
+| **صور**: JPG وPNG وWebP وHEIC وAVIF وTIFF وBMP وICO وSVG | JPG، PNG، WebP، AVIF، TIFF، BMP، ICO، PDF | قص، ضغط، نصف الحجم، تدوير، أبيض وأسود، حذف البيانات، عدة صور في PDF واحد، عرض شرائح PPTX |
 | **GIF** | MP4، MOV، WebM، PNG، JPG، WebP | |
 | **فيديو**: MP4 وMOV وMKV وWebM وAVI وWMV... | MP4، MOV، MKV، WebM، AVI، WMV، GIF، MP3، M4A | ضغط، قص المدة، قص الإطار، تقسيم، حذف الصوت، سرعة ×2، بطء ×½، تدوير، لقطة، حذف البيانات، دمج |
 | **صوت**: MP3 وM4A وWAV وFLAC وOGG وOpus وAIFF وWMA | أي صيغة منها | ضغط، قص، تقسيم، توحيد الصوت، القنوات (أحادي أو ستيريو مع المستوى)، حذف البيانات |

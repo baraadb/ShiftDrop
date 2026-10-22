@@ -25,7 +25,6 @@ jobs:
           ./installer/Install-ShiftDrop.ps1 -SkipBuild -NoLaunch -ToolsOnly
           $env:SHIFTDROP_FFMPEG_DIR = "$PWD/build/publish/tools"
           $env:SHIFTDROP_PDFIUM_DIR = "$PWD/build/publish/tools"
-          $env:SHIFTDROP_ONNX_DIR = "$PWD/build/publish/tools"
           dotnet run --project tests/ShiftDrop.Tests -c Release
 
       - name: Publish

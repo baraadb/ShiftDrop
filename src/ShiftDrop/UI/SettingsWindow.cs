@@ -127,8 +127,8 @@ public sealed partial class SettingsWindow : Window
         Label(right, yR, colW, P(22), L.T($"ShiftDrop {AppInfo.VersionText} · free and open source (MIT)",
             $"ShiftDrop {AppInfo.VersionText} · مجاني ومفتوح المصدر (MIT)"));
         yR += P(24);
-        Label(right, yR, colW, P(40), L.T("Uses FFmpeg (LGPL), PDFium (BSD) and ONNX Runtime (MIT). Your files never leave this PC.",
-            "يستخدم FFmpeg (LGPL) وPDFium (BSD) وONNX Runtime (MIT). ملفاتك لا تغادر جهازك."), muted: true);
+        Label(right, yR, colW, P(40), L.T("Uses FFmpeg (LGPL) and PDFium (BSD). Your files never leave this PC.",
+            "يستخدم FFmpeg (LGPL) وPDFium (BSD). ملفاتك لا تغادر جهازك."), muted: true);
         yR += P(44);
         int bw = (colW - P(16)) / 3;
         Button(right, yR, bw, L.T("How to use", "طريقة الاستخدام"), () => _app.ShowTip(15));

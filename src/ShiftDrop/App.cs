@@ -79,7 +79,6 @@ public sealed partial class App : Window
 
         var tools = Path.Combine(appDir, "tools");
         Pdfium.SearchDirs.Add(tools);
-        Onnx.SearchDirs.Add(tools);
         var services = new Services { FFmpeg = FFmpeg.Locate(tools, appDir) };
         foreach (var sz in new[] {
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "7-Zip", "7z.exe"),
@@ -111,7 +110,6 @@ public sealed partial class App : Window
             try { if (PrintPdfRenderer.Available()) services.DocRenderer = new PrintPdfRenderer(); } catch (Exception e) { Log.Write("printer: " + e.Message); }
             bool pdf = Pdfium.Available;
             if (Packaged.IsPackaged) Packaged.RefreshStartupAsync().GetAwaiter().GetResult();
-            Log.Write("background removal: " + (MediaOps.BackgroundAvailable ? "installed" : "not installed"));
             Post(() => app.StartupNotes(pdf));
             if (services.FFmpeg.Available) { Thread.Sleep(3000); Log.Write("h264 encoder: " + services.FFmpeg.H264); }
             // daily update check, a little after start-up so it never slows the login

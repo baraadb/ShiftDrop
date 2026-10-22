@@ -168,25 +168,6 @@ await T("crop keeps format and size", async () =>
     Assert(info.Width == 100 && info.Height == 50, $"{info.Width}x{info.Height}");
     Assert(Catalog.For([jpg, png], OpGroup.Tool, services).All(op => op.Id != "img.crop"), "crop is for one picture");
 });
-await T("remove background gives a transparent PNG", async () =>
-{
-    NeedFf();
-    if (!ShiftDrop.Core.Ops.MediaOps.BackgroundAvailable) throw new SkipException("onnxruntime or model not found");
-    var d = Dir("nobg"); var src = Path.Combine(d, "ball.jpg");
-    // a dark ball on a plain light background
-    await Gen("-f", "lavfi", "-i", "color=c=0xf2efe8:s=480x360", "-vf",
-        "geq=r='if(lt(hypot(X-240,Y-180),110),200,242)':g='if(lt(hypot(X-240,Y-180),110),40,239)':b='if(lt(hypot(X-240,Y-180),110),40,232)'",
-        "-frames:v", "1", "-update", "1", "-q:v", "2", src);
-    var job = await Run("img.nobg", [src]);
-    var o = job.Outputs[0];
-    Assert(o.EndsWith("-no-background.png"), o);
-    var info = await ff.InfoAsync(o, default);
-    Assert(info.Width == 480 && info.Height == 360 && info.HasAlpha, $"{info.Width}x{info.Height} {info.PixFmt}");
-    var px = await ff.RunToBytesAsync(["-i", o, "-f", "rawvideo", "-pix_fmt", "rgba", "-"], default);
-    int A(int x, int y) => px[(y * 480 + x) * 4 + 3];
-    Console.WriteLine($"       alpha centre {A(240, 180)} corner {A(10, 10)}");
-    Assert(A(240, 180) > 200 && A(10, 10) < 40, $"mask: centre {A(240, 180)}, corner {A(10, 10)}");
-});
 await T("gif → png, mp4", async () => { NeedFf(); await Run("img.to.png", [gif]); var j = await Run("gif.to.mp4", [gif]); Assert((await ff.InfoAsync(j.Outputs[0], default)).HasVideo, "no video"); });
 foreach (var id in new[] { "img.compress", "img.half", "img.rotate", "img.gray", "img.strip" })
 {
