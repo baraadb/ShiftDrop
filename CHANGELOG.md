@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.1
+
+- **The wheel opens smoothly again.** The picture in the middle was being requested from Windows on every frame while it loaded; now it's asked for once. The still parts of the wheel, the labels and the middle are drawn once and reused, and the opening animation is shorter (each frame takes about a third less work, much less when nothing changes).
+- **Update download progress.** While an update downloads, Settings → Updates shows a progress bar with the percentage and megabytes, and so does a card in the corner.
+- **Lighter in the background.** Background removal loads only when you use it and lets go of its memory after two minutes; ShiftDrop hands unused memory back to Windows after start-up and after each job.
+
+**العجلة صارت تفتح بسلاسة، وشريط تقدّم لتنزيل التحديث في الإعدادات، واستهلاك أقل للذاكرة.**
+
 ## 0.4.0
 
 - **A new look for the wheel.** Icons for every tool and action, a colour for every kind of file, a glassy plate, smooth opening and hover animations, a preview of the dragged file in the middle, and a strip under the wheel showing the three wheels and their keys. Light and dark.

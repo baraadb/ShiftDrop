@@ -4,7 +4,7 @@ Planned work, newest requests first. Items move to CHANGELOG.md when they ship.
 
 ## Next release
 
-- **Update download progress in Settings.** When an update is being downloaded (from Settings → Updates or from the update card), show a progress bar in the Settings window with how much has arrived (percentage and MB of MB), instead of only "Downloading…". `Updater.InstallAsync` already reports progress through `IProgress<double>`; wire it to a progress bar in `SettingsWindow` (and to the card in the corner).
+(nothing yet)
 
 ## Later
 
