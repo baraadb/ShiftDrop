@@ -117,7 +117,7 @@ jobs:
       - name: Speed and size against the previous FFmpeg
         shell: pwsh
         run: |
-          ./tools/ffmpeg/bench.ps1 -Old build/old -New build/new -Runs 5
+          ./tools/ffmpeg/bench.ps1 -Old build/old -New build/new -Runs 7
           Get-Content build/bench.md | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
 
       - uses: actions/upload-artifact@v4

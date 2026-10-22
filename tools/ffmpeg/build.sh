@@ -182,9 +182,18 @@ if ! done_mark vorbis; then
 fi
 
 if ! done_mark lame; then
-    log LAME; fetch_tar lame "$LAME_URL" "$LAME_SHA256"
+    log LAME
+    rm -rf "$SRC/lame"
+    if command -v svn >/dev/null && svn checkout -q "$LAME_SVN@$LAME_SVN_REV" "$SRC/lame"; then
+        LAME_VERSION="svn r$LAME_SVN_REV"
+        (cd "$SRC/lame" && autoreconf -fi >/dev/null 2>&1)
+    else
+        echo "Subversion not available: using the LAME $LAME_VERSION release"
+        fetch_tar lame "$LAME_URL" "$LAME_SHA256"
+    fi
+    echo "$LAME_VERSION" > "$PREFIX/lame-version.txt"
     (cd "$SRC/lame" && ./configure -q --host="$HOST" --prefix="$PREFIX" --enable-static --disable-shared \
-        --disable-frontend --disable-decoder --disable-gtktest --enable-nasm >/dev/null \
+        --disable-frontend --disable-decoder --disable-gtktest --disable-cpml >/dev/null \
      && make -s -j"$JOBS" >/dev/null && make -s install >/dev/null)
     mark lame
 fi
@@ -276,7 +285,7 @@ done
     echo "FFmpeg $FFMPEG_TAG ($FFMPEG_COMMIT) - LGPL 2.1 or later - https://ffmpeg.org"
     echo "Compiler: $($CC --version | head -1)"
     echo "dav1d $DAV1D_TAG · libaom $AOM_TAG · SVT-AV1 $SVTAV1_TAG · libvpx $VPX_TAG · libwebp $WEBP_TAG"
-    echo "opus $OPUS_TAG · ogg $OGG_TAG · vorbis $VORBIS_TAG · LAME $LAME_VERSION · zlib $ZLIB_TAG"
+    echo "opus $OPUS_TAG · ogg $OGG_TAG · vorbis $VORBIS_TAG · LAME $(cat "$PREFIX/lame-version.txt") · zlib $ZLIB_TAG"
     echo "nv-codec-headers $NVCODEC_TAG · AMF $AMF_TAG · Intel VPL $VPL_TAG"
     echo "Built by tools/ffmpeg/build.sh: https://github.com/baraadb/ShiftDrop"
     echo

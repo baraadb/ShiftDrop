@@ -160,7 +160,7 @@ Starring the repository, reporting bugs and suggesting formats help just as much
 
 ## Build from source
 
-You need Windows 10/11 and nothing else; the script fetches the .NET 10 SDK, FFmpeg and PDFium by itself.
+You need Windows 10/11 and nothing else; the script fetches the .NET 10 SDK, ShiftDrop's FFmpeg and resvg, and PDFium by itself.
 
 ```text
 Install.cmd          build and install for the current user
@@ -171,7 +171,7 @@ For development:
 
 ```text
 dotnet build src/ShiftDrop                        # the Windows app
-dotnet run --project tests/ShiftDrop.Tests         # engine tests (SHIFTDROP_FFMPEG_DIR, _PDFIUM_DIR)
+dotnet run --project tests/ShiftDrop.Tests         # engine tests (SHIFTDROP_FFMPEG_DIR, _PDFIUM_DIR, _RESVG_DIR)
 dotnet build src/ShiftDrop -p:AppTfm=net10.0       # compile check on Linux or macOS
 ```
 
@@ -181,8 +181,11 @@ dotnet build src/ShiftDrop -p:AppTfm=net10.0       # compile check on Linux or m
 | `src/ShiftDrop` | The Windows app in plain Win32: mouse hook, OLE drop-target wheel drawn with GDI+, tray, progress cards, crop editor, share sheet, settings |
 | `tests/ShiftDrop.Tests` | End-to-end tests that make their own sample files |
 | `installer` | Build-and-install script, Inno Setup script, uninstaller |
+| `tools/ffmpeg` | ShiftDrop's own FFmpeg: the build script, pinned versions, and the speed comparison |
 
 Every push to `main` is built and tested on Windows by GitHub Actions; a new version number publishes a release with the installer.
+
+**ShiftDrop's FFmpeg.** ShiftDrop ships its own FFmpeg build, made by [`tools/ffmpeg/build.sh`](tools/ffmpeg/build.sh): every built-in FFmpeg format, plus only the outside libraries ShiftDrop uses (dav1d, libaom, SVT-AV1, libvpx, libwebp, Opus, Vorbis, LAME, and the NVIDIA, AMD, Intel and Media Foundation encoders), compiled with GCC 16 into shared DLLs. It is about a quarter of the size of a full build. Before a build is published, the [tools workflow](.github/workflows/tools.yml) runs every test with it on Windows and times it against the previous FFmpeg on the same machine; a slower build is not published. Once a month it is rebuilt with FFmpeg's newest code.
 
 ## Code signing policy
 
@@ -196,7 +199,7 @@ The Microsoft Store version is signed by Microsoft.
 
 ## Credits
 
-ShiftDrop stands on great open-source work: [FFmpeg](https://ffmpeg.org), [PDFium](https://pdfium.googlesource.com/pdfium), and [.NET](https://dotnet.microsoft.com). Details in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+ShiftDrop stands on great open-source work: [FFmpeg](https://ffmpeg.org) and the codec libraries inside it, [resvg](https://github.com/linebender/resvg), [PDFium](https://pdfium.googlesource.com/pdfium), and [.NET](https://dotnet.microsoft.com). The FFmpeg toolchain image comes from [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds). Details in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ShiftDrop is an independent project inspired by the drag-to-convert idea of Tangerine for Mac. It shares no code, name or assets with it.
 
