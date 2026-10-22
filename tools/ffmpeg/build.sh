@@ -6,7 +6,7 @@
 #   dav1d (fast AV1 decoding) · libaom (AVIF pictures) · SVT-AV1 (AV1 video) · libvpx (VP9/WebM)
 #   libwebp · opus · vorbis · LAME (MP3) · zlib (PNG) · NVENC, AMF, Intel VPL and Media Foundation
 #   (H.264 on the graphics card or through Windows).
-# What stays out: ffplay, capture devices, network protocols, and the dozens of libraries
+# What stays out: ffplay, capture devices (only lavfi stays: ShiftDrop uses it to test H.264 encoders), network protocols, and the dozens of libraries
 # ShiftDrop never calls. The libraries are linked into a "shared" build, so ffmpeg.exe and
 # ffprobe.exe use the same DLLs instead of carrying a full copy each.
 #
@@ -81,6 +81,12 @@ set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 EOF
+# winpthreads only as a static library: the import libraries (.dll.a) would make our DLLs need
+# libwinpthread-1.dll, so their names point at the static archive (this folder is searched first)
+WINPTHREAD_A="$(ls /usr/$HOST/lib/libwinpthread.a 2>/dev/null || $CC -print-file-name=libwinpthread.a)"
+ln -sf "$WINPTHREAD_A" "$PREFIX/lib/libpthread.dll.a"
+ln -sf "$WINPTHREAD_A" "$PREFIX/lib/libwinpthread.dll.a"
+
 CMAKE=(cmake -G Ninja -DCMAKE_TOOLCHAIN_FILE="$WORK/cross.cmake" -DCMAKE_BUILD_TYPE=Release
        -DCMAKE_INSTALL_PREFIX="$PREFIX" -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON)
 
@@ -208,6 +214,8 @@ if ! done_mark vpl; then
 fi
 
 # ---------------------------------------------------------------- FFmpeg
+# -Wl,-Bstatic: every library is taken from its .a (on Windows the system DLLs are .a import
+# libraries too), so the threads and C++ runtimes end up inside our DLLs and nothing else is needed.
 log FFmpeg
 if [ "${FFMPEG_FOLLOW_BRANCH:-}" = 1 ]; then
     rm -rf "$SRC/ffmpeg"
@@ -223,14 +231,14 @@ cd "$WORK/ffmpeg-build"
     --prefix="$DEST" --target-os=mingw32 --arch=x86_64 --cross-prefix="$HOST-" --cc="$CC" --cxx="$CXX" \
     --pkg-config=pkg-config --pkg-config-flags=--static \
     --enable-shared --disable-static --disable-debug --disable-doc --enable-stripping \
-    --disable-ffplay --disable-avdevice --disable-network --disable-autodetect \
+    --disable-ffplay --disable-indevs --disable-outdevs --enable-indev=lavfi --disable-network --disable-autodetect \
     --enable-w32threads --enable-zlib --enable-mediafoundation --enable-d3d11va --enable-dxva2 \
     --enable-ffnvcodec --enable-nvenc --enable-nvdec --enable-cuvid --enable-amf --enable-libvpl \
     --enable-libdav1d --enable-libaom --disable-decoder=libaom_av1 --enable-libsvtav1 --enable-libvpx --enable-libwebp \
     --enable-libopus --enable-libvorbis --enable-libmp3lame \
     --extra-cflags="-I$PREFIX/include" \
-    --extra-ldflags="-L$PREFIX/lib -static-libgcc -static-libstdc++" \
-    --extra-libs="-Wl,-Bstatic -lstdc++ -lwinpthread -Wl,-Bdynamic" \
+    --extra-ldflags="-L$PREFIX/lib -static-libgcc -static-libstdc++ -Wl,-Bstatic" \
+    --extra-libs="-lstdc++ -lwinpthread" \
     --extra-version=shiftdrop >"$WORK/configure.log" 2>&1 || { tail -40 "$WORK/configure.log"; tail -40 ffbuild/config.log; exit 1; }
 make -s -j"$JOBS" >/dev/null
 make -s install >/dev/null
