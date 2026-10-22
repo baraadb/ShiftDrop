@@ -395,9 +395,159 @@ await T("zip slip is refused", async () =>
     Assert(job.State == JobState.Failed && !File.Exists(Path.Combine(root, "escaped.txt")), "slip " + job.State);
 });
 
+Console.WriteLine("spreadsheets and office");
+string[][] sample =
+[
+    ["Item", "Qty", "Price", "ملاحظة"],
+    ["Apples, red", "3", "1,250.50", "طازج"],
+    ["Quote \"x\"", "007", "2.5", "سطر\nثاني"],
+];
+string MakeCsv(string dir)
+{
+    var p = Path.Combine(dir, "prices.csv");
+    Sheets.WriteDelimited(sample, p, ',');
+    return p;
+}
+await T("csv → xlsx → ods → tsv keeps every cell", async () =>
+{
+    var d = Dir("sheets"); var csv = MakeCsv(d);
+    var x = await Run("sheet.to.xlsx", [csv]);
+    var back = Sheets.Read(x.Outputs[0])[0].Rows;
+    Assert(back.Count == 3 && back[1][0] == "Apples, red" && back[1][2] == "1250.5" && back[2][1] == "007" && back[2][3] == "سطر\nثاني" && back[0][3] == "ملاحظة",
+        string.Join(" | ", back.Select(r => string.Join(";", r))));
+    var o = await Run("sheet.to.ods", [x.Outputs[0]]);
+    var ods = Sheets.Read(o.Outputs[0])[0].Rows;
+    Assert(ods[2][0] == "Quote \"x\"" && ods[2][3] == "سطر\nثاني" && ods[1][1] == "3", string.Join(" | ", ods.Select(r => string.Join(";", r))));
+    var t = await Run("sheet.to.tsv", [o.Outputs[0]]);
+    var tsv = File.ReadAllText(t.Outputs[0]);
+    Assert(tsv.Contains("Apples, red\t3\t1250.5\tطازج"), tsv);
+    Assert(!Catalog.For([csv], OpGroup.Convert, services).Any(op => op.TargetExt == "csv"), "csv offered for csv");
+});
+await T("csv with semicolons and a legacy encoding", async () =>
+{
+    var d = Dir("semi"); var p = Path.Combine(d, "old.csv");
+    File.WriteAllBytes(p, System.Text.Encoding.GetEncoding(1256).GetBytes("اسم;عدد\r\nتفاح;5\r\n"));
+    var x = await Run("sheet.to.xlsx", [p]);
+    var rows = Sheets.Read(x.Outputs[0])[0].Rows;
+    Assert(rows[1][0] == "تفاح" && rows[1][1] == "5", string.Join(" | ", rows.Select(r => string.Join(";", r))));
+});
+await T("sheet → html table, markdown table → docx table", async () =>
+{
+    var d = Dir("tables"); var csv = MakeCsv(d);
+    var h = await Run("sheet.to.html", [csv]);
+    var html = File.ReadAllText(h.Outputs[0]);
+    Assert(html.Contains("<th>Item</th>") && html.Contains("<td>Apples, red</td>"), html);
+    var md = Path.Combine(d, "t.md");
+    File.WriteAllText(md, "# Prices\n\n| Name | Qty |\n| --- | ---: |\n| Pen \\| blue | 2 |\n| قلم | 3 |\n\nAfter.\n");
+    var docx = await Run("doc.to.docx", [md]);
+    var blocks = Documents.FromDocx(docx.Outputs[0]);
+    var table = blocks.FirstOrDefault(b => b.Kind == BlockKind.Table);
+    Assert(table?.Rows is { Count: 3 } rows && rows[1][0] == "Pen | blue" && rows[2][0] == "قلم", "table " + (table == null ? "missing" : string.Join("|", table.Rows!.Select(r => string.Join(";", r)))));
+    var back = await Run("doc.to.md", [docx.Outputs[0]]);
+    Assert(File.ReadAllText(back.Outputs[0]).Contains("| Pen \\| blue | 2 |"), File.ReadAllText(back.Outputs[0]));
+});
+await T("rtf, html and epub in; epub out", async () =>
+{
+    var d = Dir("books");
+    var rtf = Path.Combine(d, "letter.rtf");
+    File.WriteAllText(rtf, "{\\rtf1\\ansi\\ansicpg1256\\deff0{\\fonttbl{\\f0 Arial;}}{\\colortbl;\\red0\\green0\\blue0;}\\f0\\fs22 Hello \\b world\\b0\\par \\'e3\\'d1\\'cd\\'c8\\'c7\\par Caf\\u233?\\tab end\\par}");
+    var txt = await Run("doc.to.txt", [rtf]);
+    var t = File.ReadAllText(txt.Outputs[0]);
+    Assert(t.Contains("Hello world") && t.Contains("مرحبا") && t.Contains("Café\tend") && !t.Contains("Arial"), t);
+    var html = Path.Combine(d, "page.html");
+    File.WriteAllText(html, "<html><head><title>x</title><style>p{}</style></head><body><h1>Title</h1><p>One &amp; <b>two</b></p><ul><li>a</li><li>b</li></ul><table><tr><th>k</th><th>v</th></tr><tr><td>x</td><td>1</td></tr></table><script>bad()</script></body></html>");
+    var md = await Run("doc.to.md", [html]);
+    var m = File.ReadAllText(md.Outputs[0]);
+    Assert(m.Contains("# Title") && m.Contains("One & two") && m.Contains("- a") && m.Contains("| k | v |") && !m.Contains("bad()"), m);
+    var epub = await Run("doc.to.epub", [md.Outputs[0]]);
+    using (var z = ZipFile.OpenRead(epub.Outputs[0]))
+    {
+        Assert(z.Entries[0].FullName == "mimetype" && z.Entries[0].CompressedLength == z.Entries[0].Length, "mimetype first and stored");
+        Assert(z.GetEntry("OEBPS/content.opf") != null && z.GetEntry("OEBPS/nav.xhtml") != null, "opf/nav");
+        foreach (var e in z.Entries.Where(e => e.FullName.EndsWith(".xhtml")))
+            using (var s = e.Open()) System.Xml.Linq.XDocument.Load(s); // must be well-formed XML
+    }
+    var again = await Run("doc.to.txt", [epub.Outputs[0]]);
+    var a = File.ReadAllText(again.Outputs[0]);
+    Assert(a.Contains("Title") && a.Contains("One & two") && a.Contains("k\tv"), a);
+});
+
+// a small PDF with text laid out as a table (Helvetica, real text)
+string TablePdf(string dir)
+{
+    var path = Path.Combine(dir, "invoice.pdf");
+    var content = new StringBuilder("BT /F1 12 Tf\n");
+    string[][] rows = [["Item", "Qty", "Price"], ["Paper", "2", "4.50"], ["Ink cartridge", "1", "19.99"], ["Total", "", "28.99"]];
+    content.Append("1 0 0 1 72 760 Tm (INVOICE 2026) Tj\n");
+    for (int r = 0; r < rows.Length; r++)
+        for (int c = 0; c < rows[r].Length; c++)
+            if (rows[r][c].Length > 0)
+                content.Append($"1 0 0 1 {72 + c * 160} {700 - r * 22} Tm ({rows[r][c]}) Tj\n");
+    content.Append("ET\n");
+    var objs = new List<string>
+    {
+        "<< /Type /Catalog /Pages 2 0 R >>",
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+        $"<< /Length {content.Length} >>\nstream\n{content}endstream",
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    };
+    var sb = new StringBuilder("%PDF-1.4\n");
+    var offsets = new List<int>();
+    for (int i = 0; i < objs.Count; i++) { offsets.Add(sb.Length); sb.Append($"{i + 1} 0 obj\n{objs[i]}\nendobj\n"); }
+    int xref = sb.Length;
+    sb.Append($"xref\n0 {objs.Count + 1}\n0000000000 65535 f \n");
+    foreach (var o in offsets) sb.Append($"{o:D10} 00000 n \n");
+    sb.Append($"trailer\n<< /Size {objs.Count + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n");
+    File.WriteAllText(path, sb.ToString(), System.Text.Encoding.Latin1);
+    return path;
+}
+await T("pdf → xlsx finds the table", async () =>
+{
+    NeedPdf();
+    var pdf = TablePdf(Dir("pdfx"));
+    var x = await Run("pdf.to.xlsx", [pdf]);
+    var rows = Sheets.Read(x.Outputs[0])[0].Rows;
+    Console.WriteLine("       " + string.Join(" | ", rows.Select(r => string.Join(";", r))));
+    var paper = rows.FirstOrDefault(r => r.Contains("Paper"));
+    var ink = rows.FirstOrDefault(r => r.Contains("Ink cartridge"));
+    Assert(paper != null && ink != null && Array.IndexOf(paper, "4.5") == Array.IndexOf(ink, "19.99") && Array.IndexOf(paper, "2") == Array.IndexOf(ink, "1"),
+        "columns don't line up");
+});
+await T("pdf → pptx and pictures → slides", async () =>
+{
+    NeedFf(); NeedPdf();
+    var d = Dir("pptx");
+    var pdf = TablePdf(d);
+    var p = await Run("pdf.to.pptx", [pdf]);
+    using (var z = ZipFile.OpenRead(p.Outputs[0]))
+        Assert(z.GetEntry("ppt/slides/slide1.xml") != null && z.GetEntry("ppt/media/image1.jpeg")!.Length > 1000, "slide/media");
+    var s = await Run("img.toslides", [png, jpg]);
+    using (var z = ZipFile.OpenRead(s.Outputs[0]))
+        Assert(z.Entries.Count(e => e.FullName.StartsWith("ppt/slides/slide")) == 2, "two slides");
+});
+await T("pdf → epub", async () =>
+{
+    NeedPdf();
+    var e = await Run("pdf.to.epub", [TablePdf(Dir("pdfepub"))]);
+    var back = Documents.ToText(Documents.FromEpub(e.Outputs[0]));
+    Assert(back.Contains("INVOICE 2026"), back);
+});
+await T("split audio and video into parts", async () =>
+{
+    NeedFf();
+    var a = await Run("aud.split", [wav], new() { ["length"] = "0:01" });
+    Assert(Directory.GetFiles(a.Outputs[0]).Length == 2, "audio parts: " + Directory.GetFiles(a.Outputs[0]).Length);
+    // video is cut at key frames (no re-encoding), so make one with a key frame every 0.4 s
+    var src = Path.Combine(Dir("split"), "gop.mp4");
+    await Gen(["-f", "lavfi", "-i", "testsrc2=s=160x120:r=10:d=2", .. H264(), "-g", "4", "-pix_fmt", "yuv420p", src]);
+    var v = await Run("vid.split", [src], new() { ["length"] = "1" });
+    Assert(Directory.GetFiles(v.Outputs[0]).Length >= 2, "video parts: " + Directory.GetFiles(v.Outputs[0]).Length);
+});
+
 Console.WriteLine();
 Console.WriteLine($"{pass} passed, {fail} failed, {skip} skipped");
-try { if (fail == 0) Directory.Delete(root, true); else Console.WriteLine("fixtures kept in " + root); } catch { }
+try { if (fail == 0 && Environment.GetEnvironmentVariable("SHIFTDROP_KEEP") != "1") Directory.Delete(root, true); else Console.WriteLine("fixtures kept in " + root); } catch { }
 return fail == 0 ? 0 : 1;
 
 sealed class SkipException(string m) : Exception(m);

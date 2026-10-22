@@ -7,7 +7,7 @@ namespace ShiftDrop.UI;
 /// <summary>Small progress cards in the corner of the screen, one per job, plus short tips.</summary>
 public sealed class Hud : LayeredWindow
 {
-    const float CardW = 340, Pad = 14, GapY = 10, Radius = 12;
+    const float CardW = 350, Pad = 14, GapY = 10, Radius = 14;
     const nuint TimerTick = 1, TimerRedraw = 2;
 
     sealed class Card
@@ -135,6 +135,10 @@ public sealed class Hud : LayeredWindow
         var job = card.Job;
         if (job == null)
         {
+            // a small dot in the app's colour (red title for errors)
+            if (!card.Error) c.FillCircle(rtl ? x + w - inner - 4 * s : x + inner + 4 * s, y + 22 * s, 4 * s, th.Accent);
+            textX = rtl ? textX : textX + 14 * s;
+            textW -= 14 * s;
             c.Text(card.Title, textX, y + 12 * s, textW, 20 * s, 13.5f * s, card.Error ? th.Danger : th.CardText, bold: true, align: align);
             card.LinkBox = default;
             if (card.Action != null && card.ActionText != null)
@@ -150,22 +154,32 @@ public sealed class Hud : LayeredWindow
             return;
         }
 
+        // a tile in the operation's colour: its format, or its tool icon
+        uint family = Icons.Family(job.Op);
+        float tile = 40 * s, tileX = rtl ? x + w - inner - tile : x + inner, tileY = y + 12 * s;
+        c.RoundRect(tileX, tileY, tile, tile, 10 * s, (family & 0x00FFFFFF) | 0x26000000);
+        if (job.Op.Group == OpGroup.Convert)
+            c.Text(job.Op.En.Length > 4 ? job.Op.En[..4] : job.Op.En, tileX, tileY, tile, tile, (job.Op.En.Length > 3 ? 10.5f : 12.5f) * s, family, bold: true, rtl: false);
+        else Icons.Draw(c, Icons.For(job.Op), tileX + tile / 2, tileY + tile / 2, 20 * s, family);
+        float shift = tile + 12 * s;
+        textX = rtl ? textX : textX + shift;
+        textW -= shift;
         c.Text(job.Title, textX, y + 12 * s, textW, 20 * s, 13.5f * s, th.CardText, bold: true, align: align);
         c.Text(job.Subtitle, textX, y + 33 * s, textW, 18 * s, 12 * s, th.CardSub, align: align, rtl: Core.Engines.Documents.IsRtl(job.Subtitle));
-        float barY = y + 58 * s, barX = x + inner, barW = w - inner * 2;
+        float barY = y + 60 * s, barX = rtl ? x + inner : x + inner + shift, barW = w - inner * 2 - shift;
         card.LinkBox = default;
         switch (job.State)
         {
             case JobState.Queued or JobState.Running:
                 c.RoundRect(barX, barY, barW, 4 * s, 2 * s, th.Track);
                 if (job.Progress >= 0)
-                    c.RoundRect(rtl ? barX + barW * (1 - (float)job.Progress) : barX, barY, Math.Max(4 * s, barW * (float)job.Progress), 4 * s, 2 * s, th.Accent);
+                    c.RoundRect(rtl ? barX + barW * (1 - (float)job.Progress) : barX, barY, Math.Max(4 * s, barW * (float)job.Progress), 4 * s, 2 * s, family);
                 else
                 {
                     float t = (Environment.TickCount64 % 1200) / 1200f;
                     float seg = barW * 0.28f, pos = (barW + seg) * t - seg;
                     float a = Math.Max(0, pos), b = Math.Min(barW, pos + seg);
-                    if (b > a) c.RoundRect(rtl ? barX + barW - b : barX + a, barY, b - a, 4 * s, 2 * s, th.Accent);
+                    if (b > a) c.RoundRect(rtl ? barX + barW - b : barX + a, barY, b - a, 4 * s, 2 * s, family);
                 }
                 break;
             case JobState.Done:

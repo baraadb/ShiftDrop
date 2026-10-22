@@ -14,7 +14,7 @@ public static class Catalog
     public static IReadOnlyList<Operation> Operations => All;
 
     static readonly FileKind[] Raster = [FileKind.Image, FileKind.Gif];
-    static readonly FileKind[] Docs = [FileKind.Text, FileKind.Markdown, FileKind.Docx];
+    static readonly FileKind[] Docs = [FileKind.Text, FileKind.Markdown, FileKind.Docx, FileKind.Rtf, FileKind.Html, FileKind.Epub];
     static readonly FileKind[] Everything = Enum.GetValues<FileKind>();
 
     static Catalog()
@@ -57,6 +57,9 @@ public static class Catalog
         Convert("pdf", "docx", [FileKind.Pdf], c => DocOps.PdfToDoc(c, "docx"), Needs.Pdfium);
         Convert("pdf", "md", [FileKind.Pdf], c => DocOps.PdfToDoc(c, "md"), Needs.Pdfium);
         Convert("pdf", "html", [FileKind.Pdf], c => DocOps.PdfToDoc(c, "html"), Needs.Pdfium);
+        Convert("pdf", "xlsx", [FileKind.Pdf], OfficeOps.PdfToSheet, Needs.Pdfium);
+        Convert("pdf", "pptx", [FileKind.Pdf], OfficeOps.PdfToSlides, Needs.Pdfium | Needs.FFmpeg);
+        Convert("pdf", "epub", [FileKind.Pdf], c => DocOps.PdfToDoc(c, "epub"), Needs.Pdfium);
 
         // ---- conversions: documents ----
         Convert("doc", "pdf", Docs, c => DocOps.DocTo(c, "pdf"), Needs.DocRenderer);
@@ -64,6 +67,16 @@ public static class Catalog
         Convert("doc", "md", Docs, c => DocOps.DocTo(c, "md"), Needs.None);
         Convert("doc", "html", Docs, c => DocOps.DocTo(c, "html"), Needs.None);
         Convert("doc", "txt", Docs, c => DocOps.DocTo(c, "txt"), Needs.None);
+        Convert("doc", "epub", Docs, c => DocOps.DocTo(c, "epub"), Needs.None);
+
+        // ---- conversions: spreadsheets ----
+        foreach (var ext in new[] { "xlsx", "ods", "csv", "tsv" })
+        {
+            var e = ext;
+            Convert("sheet", e, [FileKind.Sheet], c => OfficeOps.SheetTo(c, e), Needs.None);
+        }
+        Convert("sheet", "pdf", [FileKind.Sheet], c => OfficeOps.SheetTo(c, "pdf"), Needs.DocRenderer);
+        Convert("sheet", "html", [FileKind.Sheet], c => OfficeOps.SheetTo(c, "html"), Needs.None);
 
         // ---- conversions: subtitles & archives ----
         Convert("sub", "srt", [FileKind.Subtitle], c => DocOps.SubtitleTo(c, "srt"), Needs.None);
@@ -88,6 +101,7 @@ public static class Catalog
         Tool("img.strip", "Remove metadata", "حذف البيانات", [FileKind.Image], MediaOps.ImageStrip);
         Tool("img.onepdf", "One PDF", "PDF واحد", [FileKind.Image], c => MediaOps.ImagesToPdf(c, c.Inputs, c.Out($"{c.Base}-images.pdf")),
             combine: true, min: 2);
+        Tool("img.toslides", "Slides (PPTX)", "عرض شرائح", [FileKind.Image], OfficeOps.ImagesToSlides, combine: true);
 
         // ---- tools: video ----
         Tool("vid.compress", "Compress", "ضغط", [FileKind.Video], MediaOps.VideoCompress, heavy: true);
@@ -99,10 +113,12 @@ public static class Catalog
         Tool("vid.snapshot", "Snapshot", "لقطة", [FileKind.Video], MediaOps.VideoSnapshot);
         Tool("vid.strip", "Remove metadata", "حذف البيانات", [FileKind.Video], c => MediaOps.VideoCopy(c, "clean", false, true), heavy: true);
         Tool("vid.join", "Join", "دمج", [FileKind.Video], MediaOps.VideoJoin, heavy: true, combine: true, min: 2);
+        Tool("vid.split", "Split", "تقسيم", [FileKind.Video], OfficeOps.SplitMedia, heavy: true, fields: SplitFields);
 
         // ---- tools: audio ----
         Tool("aud.compress", "Compress", "ضغط", [FileKind.Audio], c => MediaOps.AudioTool(c, "compressed", null, null, smaller: true), heavy: true);
         Tool("aud.trim", "Trim", "قص", [FileKind.Audio], MediaOps.AudioTrim, heavy: true, fields: TrimFields);
+        Tool("aud.split", "Split", "تقسيم", [FileKind.Audio], OfficeOps.SplitMedia, heavy: true, fields: SplitFields);
         Tool("aud.normalize", "Normalize", "توحيد الصوت", [FileKind.Audio],
             c => MediaOps.AudioTool(c, "normalized", null, ["-af", "loudnorm=I=-16:TP=-1.5:LRA=11", "-ar", "48000"]), heavy: true);
         Tool("aud.mono", "Mono", "أحادي", [FileKind.Audio], c => MediaOps.AudioTool(c, "mono", null, ["-ac", "1"]), heavy: true);
@@ -126,6 +142,11 @@ public static class Catalog
             Combine = true, Run = DocOps.Zip,
         });
     }
+
+    static InputField[] SplitFields =>
+    [
+        new("length", "Length of each part (e.g. 5:00)", "طول كل جزء (مثل 5:00)", "5:00"),
+    ];
 
     static InputField[] TrimFields =>
     [
@@ -201,6 +222,8 @@ public static class Catalog
         "aif" => "aiff",
         "oga" => "ogg",
         "markdown" => "md",
+        "htm" => "html",
+        "xlsm" => "xlsx",
         _ => e,
     };
 }

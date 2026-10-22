@@ -58,7 +58,65 @@ static class Preview
         Shot("07-pdf-tools-dark-arabic", [doc], OpGroup.Tool, 1, Theme.Dark, arabic: true);
         Shot("08-many-files-light-arabic", [photo, video, doc], OpGroup.Action, -1, Theme.Light, arabic: true);
         Shot("09-waiting-dark", [], OpGroup.Convert, -1, Theme.Dark, waiting: true);
+        // the Float card, light and dark
+        foreach (var (mode, name) in new[] { ("light", "12-float-light"), ("dark", "13-float-dark") })
+        {
+            Theme.Override = mode;
+            L.Arabic = mode == "dark";
+            try
+            {
+                Thumbs.Preload(photo, (int)(46 * scale * 1.5f));
+                FloatWindow.RenderPreview(mode == "dark" ? [photo, video] : [photo], Path.Combine(outDir, name + ".png"), scale);
+            }
+            catch (Exception e) { File.WriteAllText(Path.Combine(outDir, name + ".txt"), e.ToString()); }
+        }
+        Theme.Override = "system";
+        L.Arabic = false;
+
+        // documents through "Microsoft Print to PDF": a long spreadsheet (header on every page) and a document with a table
+        try
+        {
+            if (PrintPdfRenderer.Available())
+            {
+                var renderer = new PrintPdfRenderer();
+                var rows = new List<string[]> { new[] { "#", "Product", "المنتج", "Qty", "Price", "Note" } };
+                for (int i = 1; i <= 70; i++)
+                    rows.Add([i.ToString(), $"Item {i}", i % 3 == 0 ? "تفاح أحمر طازج" : "قلم", (i * 3).ToString(), (i * 1.25).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture),
+                        i % 7 == 0 ? "A longer note that has to wrap inside its cell to show how rows grow" : ""]);
+                var sheetPdf = Path.Combine(outDir, "sheet.pdf");
+                renderer.RenderPdf(Sheets.ToBlocks([new Sheet("Prices", rows)]), "Prices", sheetPdf, CancellationToken.None);
+                var docPdf = Path.Combine(outDir, "doc.pdf");
+                var md = "# تقرير الأسعار\n\nهذا مستند عربي فيه جدول.\n\n| البند | الكمية | السعر |\n| --- | --- | --- |\n| ورق | 2 | 4.50 |\n| حبر | 1 | 19.99 |\n\n## English part\n\n| Name | Value |\n| --- | --- |\n| Alpha | 1 |\n| Beta | 22 |\n";
+                renderer.RenderPdf(Documents.FromMarkdown(md), "Doc", docPdf, CancellationToken.None);
+                PdfPages(sheetPdf, "10-sheet", 2);
+                PdfPages(docPdf, "11-doc", 1);
+            }
+            else File.WriteAllText(Path.Combine(outDir, "10-no-printer.txt"), "Microsoft Print to PDF is not available on this machine");
+        }
+        catch (Exception e) { File.WriteAllText(Path.Combine(outDir, "10-print.txt"), e.ToString()); }
+
+        void PdfPages(string pdf, string name, int max)
+        {
+            int n = Math.Min(max, Pdfium.PageCount(pdf));
+            for (int i = 0; i < n; i++)
+            {
+                var (pixels, w, h) = Pdfium.RenderPage(pdf, i, 80);
+                SaveBgrx(pixels, w, h, Path.Combine(outDir, $"{name}-p{i + 1}.png"));
+            }
+        }
+
         File.WriteAllText(Path.Combine(outDir, "done.txt"), "ok");
         return 0;
+    }
+
+    static unsafe void SaveBgrx(byte[] pixels, int w, int h, string path)
+    {
+        fixed (byte* p = pixels)
+        {
+            if (Gdip.GdipCreateBitmapFromScan0(w, h, w * 4, 0x00022009 /*32bppRGB*/, (IntPtr)p, out var bmp) != 0) return;
+            var png = new Guid("557CF406-1A04-11D3-9A73-0000F81EF32E");
+            Gdip.GdipSaveImageToFile(bmp, path, ref png, IntPtr.Zero);
+            Gdip.GdipDisposeImage(bmp);
+        }
     }
 }

@@ -142,6 +142,73 @@ public static unsafe partial class Pdfium
         }
     }
 
+    /// <summary>A run of characters on one line of a page (PDF points, origin bottom-left).</summary>
+    public sealed record Word(string Text, double Left, double Right, double Bottom, double Top)
+    {
+        public double Height => Top - Bottom;
+        public double Middle => (Top + Bottom) / 2;
+    }
+
+    /// <summary>Every page's words with their positions (for finding tables).</summary>
+    public static List<List<Word>> PageWords(string path)
+    {
+        lock (Gate)
+        {
+            using var d = Open(path);
+            var n = FPDF_GetPageCount(d.Handle);
+            var pages = new List<List<Word>>(n);
+            for (int i = 0; i < n; i++)
+            {
+                var words = new List<Word>();
+                pages.Add(words);
+                var page = FPDF_LoadPage(d.Handle, i);
+                if (page == IntPtr.Zero) continue;
+                var tp = FPDFText_LoadPage(page);
+                try
+                {
+                    int count = tp == IntPtr.Zero ? 0 : FPDFText_CountChars(tp);
+                    var sb = new StringBuilder();
+                    double l = 0, r = 0, b = 0, t = 0;
+                    void End()
+                    {
+                        var text = sb.ToString().Trim();
+                        if (text.Length > 0) words.Add(new Word(text, l, r, b, t));
+                        sb.Clear();
+                    }
+                    for (int k = 0; k < count; k++)
+                    {
+                        uint u = FPDFText_GetUnicode(tp, k);
+                        if (u is 0 or 0xFFFE or 2) continue;
+                        double cl, cr, cb, ct;
+                        if (FPDFText_GetCharBox(tp, k, &cl, &cr, &cb, &ct) == 0) continue;
+                        bool space = u is ' ' or '\t' or '\r' or '\n' or 0xA0;
+                        if (space) { if (u is '\r' or '\n') End(); else if (sb.Length > 0) sb.Append(' '); continue; }
+                        double h = Math.Max(ct - cb, 1);
+                        if (sb.Length > 0)
+                        {
+                            double lineH = Math.Max(t - b, 1);
+                            bool sameLine = Math.Abs((cb + ct) / 2 - (b + t) / 2) < Math.Max(lineH, h) * 0.5;
+                            double gap = cl - r;
+                            // a new word when the line changes, or the gap is wider than about a space
+                            // (glyph boxes are tight, so small gaps inside a word are normal; real spaces come as characters)
+                            if (!sameLine || gap > Math.Max(lineH, h) * 0.6 || gap < -Math.Max(lineH, h) * 2) End();
+                        }
+                        if (sb.Length == 0) { l = cl; r = cr; b = cb; t = ct; }
+                        else { l = Math.Min(l, cl); r = Math.Max(r, cr); b = Math.Min(b, cb); t = Math.Max(t, ct); }
+                        sb.Append(char.ConvertFromUtf32((int)Math.Min(u, 0x10FFFF)));
+                    }
+                    End();
+                }
+                finally
+                {
+                    if (tp != IntPtr.Zero) FPDFText_ClosePage(tp);
+                    FPDF_ClosePage(page);
+                }
+            }
+            return pages;
+        }
+    }
+
     /// <summary>Writes a new PDF made of page ranges ("1-3,5"; null = all) taken from several files.</summary>
     public static void Compose(IEnumerable<(string Path, string? Range)> parts, string output)
     {
@@ -283,6 +350,8 @@ public static unsafe partial class Pdfium
     [LibraryImport(Lib)] private static partial int FPDFText_CountChars(IntPtr tp);
     [LibraryImport(Lib)] private static partial int FPDFText_GetText(IntPtr tp, int start, int count, ushort* result);
     [LibraryImport(Lib)] private static partial void FPDFText_ClosePage(IntPtr tp);
+    [LibraryImport(Lib)] private static partial uint FPDFText_GetUnicode(IntPtr tp, int index);
+    [LibraryImport(Lib)] private static partial int FPDFText_GetCharBox(IntPtr tp, int index, double* left, double* right, double* bottom, double* top);
     [LibraryImport(Lib)] private static partial IntPtr FPDF_CreateNewDocument();
     [LibraryImport(Lib, StringMarshalling = StringMarshalling.Utf8)]
     private static partial int FPDF_ImportPages(IntPtr dest, IntPtr src, string? range, int index);

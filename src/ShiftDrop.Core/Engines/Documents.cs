@@ -8,13 +8,18 @@ using System.Xml.Linq;
 
 namespace ShiftDrop.Core.Engines;
 
-public enum BlockKind { Heading1, Heading2, Heading3, Paragraph, Bullet, Numbered, Code, PageBreak }
+public enum BlockKind { Heading1, Heading2, Heading3, Paragraph, Bullet, Numbered, Code, PageBreak, Table }
 
 /// <summary>One paragraph-level piece of a document. Inline Markdown marks are kept in <see cref="Text"/>.</summary>
-public sealed record Block(BlockKind Kind, string Text, int Number = 0)
+public sealed record Block(BlockKind Kind, string Text, int Number = 0, IReadOnlyList<string[]>? Rows = null)
 {
-    public bool Rtl => Documents.IsRtl(Text);
-    public string Plain => Kind == BlockKind.Code ? Text : Documents.StripInline(Text);
+    public bool Rtl => Kind == BlockKind.Table
+        ? Documents.IsRtl(string.Concat(Rows?.SelectMany(r => r).Take(12).Select(c => c + " ") ?? []))
+        : Documents.IsRtl(Text);
+    public string Plain => Kind switch { BlockKind.Code => Text, BlockKind.Table => "", _ => Documents.StripInline(Text) };
+
+    /// <summary>A table of plain-text cells (first row is the header).</summary>
+    public static Block Table(IReadOnlyList<string[]> rows) => new(BlockKind.Table, "", 0, rows);
 }
 
 /// <summary>Draws a document to PDF. On Windows this prints through "Microsoft Print to PDF" so text stays real text.</summary>
@@ -82,7 +87,7 @@ public static partial class Documents
         text.Replace("\r\n", "\n").Replace('\r', '\n').TrimEnd('\n').Split('\n');
 
     /// <summary>Plain text must not be read as Markdown later; escape the marks we interpret.</summary>
-    static string EscapeMd(string s) => s.Replace("\\", "\\\\").Replace("*", "\\*").Replace("_", "\\_").Replace("`", "\\`").Replace("[", "\\[");
+    internal static string EscapeMd(string s) => s.Replace("\\", "\\\\").Replace("*", "\\*").Replace("_", "\\_").Replace("`", "\\`").Replace("[", "\\[");
 
     public static List<Block> FromMarkdown(string md)
     {
@@ -94,9 +99,22 @@ public static partial class Documents
         {
             if (para.Length > 0) { list.Add(new Block(BlockKind.Paragraph, para.ToString())); para.Clear(); }
         }
-        foreach (var raw in Lines(md))
+        var all = Lines(md).ToList();
+        for (int li = 0; li < all.Count; li++)
         {
+            var raw = all[li];
             var line = raw.TrimEnd();
+            if (!inCode && line.TrimStart().StartsWith('|') && li + 1 < all.Count && TableRuleRx().IsMatch(all[li + 1].Trim()))
+            {
+                Flush();
+                var rows = new List<string[]> { PipeCells(line) };
+                li += 2;
+                while (li < all.Count && all[li].TrimStart().StartsWith('|')) rows.Add(PipeCells(all[li++]));
+                li--;
+                int cols = rows.Max(r => r.Length);
+                list.Add(Block.Table(rows.Select(r => r.Concat(Enumerable.Repeat("", cols - r.Length)).ToArray()).ToList()));
+                continue;
+            }
             if (line.TrimStart().StartsWith("```"))
             {
                 if (inCode) { list.Add(new Block(BlockKind.Code, code.ToString().TrimEnd('\n'))); code.Clear(); inCode = false; }
@@ -128,6 +146,23 @@ public static partial class Documents
         return list;
     }
 
+    static string[] PipeCells(string line)
+    {
+        var t = line.Trim();
+        if (t.StartsWith('|')) t = t[1..];
+        if (t.EndsWith('|') && !t.EndsWith("\\|")) t = t[..^1];
+        var cells = new List<string>();
+        var sb = new StringBuilder();
+        for (int i = 0; i < t.Length; i++)
+        {
+            if (t[i] == '\\' && i + 1 < t.Length && t[i + 1] == '|') { sb.Append('|'); i++; }
+            else if (t[i] == '|') { cells.Add(StripInline(sb.ToString().Trim())); sb.Clear(); }
+            else sb.Append(t[i]);
+        }
+        cells.Add(StripInline(sb.ToString().Trim()));
+        return cells.ToArray();
+    }
+
     public static List<Block> FromDocx(string path)
     {
         XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
@@ -143,10 +178,13 @@ public static partial class Documents
         {
             if (el.Name == w + "tbl")
             {
-                foreach (var row in el.Descendants(w + "tr"))
+                var rows = el.Elements(w + "tr")
+                    .Select(row => row.Elements(w + "tc").Select(c => string.Join("\n", c.Elements(w + "p").Select(p => ParaText(p, w))).Trim()).ToArray())
+                    .Where(r => r.Length > 0).ToList();
+                if (rows.Count > 0)
                 {
-                    var cells = row.Elements(w + "tc").Select(c => string.Join(" ", c.Descendants(w + "p").Select(p => ParaText(p, w))).Trim());
-                    list.Add(new Block(BlockKind.Paragraph, EscapeMd(string.Join("  |  ", cells))));
+                    int cols = rows.Max(r => r.Length);
+                    list.Add(Block.Table(rows.Select(r => r.Concat(Enumerable.Repeat("", cols - r.Length)).ToArray()).ToList()));
                 }
                 continue;
             }
@@ -204,6 +242,9 @@ public static partial class Documents
             switch (b.Kind)
             {
                 case BlockKind.PageBreak: sb.Append('\n'); break;
+                case BlockKind.Table:
+                    foreach (var r in b.Rows ?? []) sb.Append(string.Join('\t', r.Select(c => c.Replace('\n', ' ').Replace('\t', ' ')))).Append('\n');
+                    sb.Append('\n'); break;
                 case BlockKind.Bullet: sb.Append("• ").Append(b.Plain).Append('\n'); break;
                 case BlockKind.Numbered: sb.Append(b.Number).Append(". ").Append(b.Plain).Append('\n'); break;
                 case BlockKind.Heading1 or BlockKind.Heading2 or BlockKind.Heading3:
@@ -233,6 +274,16 @@ public static partial class Documents
                 case BlockKind.Numbered: sb.Append(b.Number).Append(". ").Append(b.Text).Append('\n'); break;
                 case BlockKind.Code: sb.Append("```\n").Append(b.Text).Append("\n```\n"); break;
                 case BlockKind.PageBreak: sb.Append("---\n"); break;
+                case BlockKind.Table:
+                {
+                    var rows = b.Rows ?? [];
+                    if (rows.Count == 0) break;
+                    string Cell(string c) => EscapeMd(c.Replace("\n", " ")).Replace("|", "\\|");
+                    sb.Append("| ").Append(string.Join(" | ", rows[0].Select(Cell))).Append(" |\n");
+                    sb.Append('|').Append(string.Concat(rows[0].Select(_ => " --- |"))).Append('\n');
+                    foreach (var r in rows.Skip(1)) sb.Append("| ").Append(string.Join(" | ", r.Select(Cell))).Append(" |\n");
+                    break;
+                }
                 default: sb.Append(b.Text).Append('\n'); break;
             }
             prev = b.Kind;
@@ -245,7 +296,7 @@ public static partial class Documents
         bool rtlDoc = blocks.Count(b => b.Rtl) > blocks.Count(b => !b.Rtl && b.Text.Length > 0);
         var sb = new StringBuilder();
         sb.Append("<!doctype html>\n<html lang=\"").Append(rtlDoc ? "ar" : "en").Append("\" dir=\"").Append(rtlDoc ? "rtl" : "ltr").Append("\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>")
-          .Append(WebUtility.HtmlEncode(title)).Append("</title>\n<style>\nbody{max-width:760px;margin:40px auto;padding:0 20px;font-family:\"Segoe UI\",Tahoma,Arial,sans-serif;line-height:1.6;color:#1f2933}\npre{background:#f4f5f7;padding:12px;overflow:auto;direction:ltr;text-align:left}\ncode{font-family:Consolas,monospace}\n</style>\n</head>\n<body>\n");
+          .Append(WebUtility.HtmlEncode(title)).Append("</title>\n<style>\nbody{max-width:760px;margin:40px auto;padding:0 20px;font-family:\"Segoe UI\",Tahoma,Arial,sans-serif;line-height:1.6;color:#1f2933}\ntable{border-collapse:collapse;margin:12px 0;font-size:.95em}\nth,td{border:1px solid #d0d7de;padding:4px 10px;text-align:start;vertical-align:top}\nth{background:#f6f8fa}\npre{background:#f4f5f7;padding:12px;overflow:auto;direction:ltr;text-align:left}\ncode{font-family:Consolas,monospace}\n</style>\n</head>\n<body>\n");
         string? openList = null;
         void CloseList() { if (openList != null) { sb.Append("</").Append(openList).Append(">\n"); openList = null; } }
         foreach (var b in blocks)
@@ -264,8 +315,23 @@ public static partial class Documents
                 case BlockKind.Heading1: sb.Append("<h1").Append(dir).Append('>').Append(InlineHtml(b.Text)).Append("</h1>\n"); break;
                 case BlockKind.Heading2: sb.Append("<h2").Append(dir).Append('>').Append(InlineHtml(b.Text)).Append("</h2>\n"); break;
                 case BlockKind.Heading3: sb.Append("<h3").Append(dir).Append('>').Append(InlineHtml(b.Text)).Append("</h3>\n"); break;
-                case BlockKind.Code: sb.Append("<pre><code>").Append(WebUtility.HtmlEncode(b.Text)).Append("</code></pre>\n"); break;
+                case BlockKind.Code: sb.Append("<pre dir=\"ltr\"><code>").Append(WebUtility.HtmlEncode(b.Text)).Append("</code></pre>\n"); break;
                 case BlockKind.PageBreak: sb.Append("<hr>\n"); break;
+                case BlockKind.Table:
+                {
+                    var rows = b.Rows ?? [];
+                    sb.Append("<table").Append(b.Rtl ? " dir=\"rtl\"" : "").Append(">\n");
+                    for (int r = 0; r < rows.Count; r++)
+                    {
+                        var tag = r == 0 ? "th" : "td";
+                        sb.Append("<tr>");
+                        foreach (var cell in rows[r])
+                            sb.Append('<').Append(tag).Append('>').Append(WebUtility.HtmlEncode(cell).Replace("\n", "<br>")).Append("</").Append(tag).Append('>');
+                        sb.Append("</tr>\n");
+                    }
+                    sb.Append("</table>\n");
+                    break;
+                }
                 default:
                     if (b.Text.Length == 0) sb.Append("<p>&nbsp;</p>\n");
                     else sb.Append("<p").Append(dir).Append('>').Append(InlineHtml(b.Text)).Append("</p>\n");
@@ -304,6 +370,7 @@ public static partial class Documents
         foreach (var b in blocks)
         {
             if (b.Kind == BlockKind.PageBreak) { body.Append("<w:p><w:r><w:br w:type=\"page\"/></w:r></w:p>"); continue; }
+            if (b.Kind == BlockKind.Table) { DocxTable(body, b); continue; }
             var lines = b.Kind == BlockKind.Code ? b.Text.Split('\n') : [b.Plain];
             foreach (var line in lines)
             {
@@ -334,10 +401,46 @@ public static partial class Documents
         Put("word/document.xml", $"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<w:document xmlns:w=\"{W}\"><w:body>{body}<w:sectPr><w:pgSz w:w=\"11906\" w:h=\"16838\"/><w:pgMar w:top=\"1134\" w:right=\"1134\" w:bottom=\"1134\" w:left=\"1134\" w:header=\"708\" w:footer=\"708\" w:gutter=\"0\"/></w:sectPr></w:body></w:document>");
     }
 
+    static void DocxTable(StringBuilder body, Block b)
+    {
+        var rows = b.Rows ?? [];
+        if (rows.Count == 0) return;
+        const string border = "w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"BFBFBF\"";
+        body.Append("<w:tbl><w:tblPr><w:tblW w:w=\"5000\" w:type=\"pct\"/>");
+        if (b.Rtl) body.Append("<w:bidiVisual/>");
+        body.Append($"<w:tblBorders><w:top {border}/><w:left {border}/><w:bottom {border}/><w:right {border}/><w:insideH {border}/><w:insideV {border}/></w:tblBorders>");
+        body.Append("<w:tblCellMar><w:left w:w=\"80\" w:type=\"dxa\"/><w:right w:w=\"80\" w:type=\"dxa\"/></w:tblCellMar></w:tblPr><w:tblGrid>");
+        int cols = rows.Max(r => r.Length);
+        for (int i = 0; i < cols; i++) body.Append("<w:gridCol/>");
+        body.Append("</w:tblGrid>");
+        for (int r = 0; r < rows.Count; r++)
+        {
+            body.Append("<w:tr>");
+            if (r == 0) body.Append("<w:trPr><w:tblHeader/></w:trPr>");
+            for (int ci = 0; ci < cols; ci++)
+            {
+                var cell = ci < rows[r].Length ? rows[r][ci] : "";
+                body.Append("<w:tc><w:tcPr><w:tcW w:w=\"0\" w:type=\"auto\"/>");
+                if (r == 0) body.Append("<w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"F2F2F2\"/>");
+                body.Append("</w:tcPr>");
+                foreach (var line in cell.Split('\n'))
+                {
+                    bool rtl = IsRtl(line);
+                    body.Append("<w:p><w:pPr><w:spacing w:after=\"0\"/>").Append(rtl ? "<w:bidi/>" : "").Append("</w:pPr><w:r><w:rPr>")
+                        .Append(r == 0 ? "<w:b/><w:bCs/>" : "").Append(rtl ? "<w:rtl/>" : "").Append("</w:rPr><w:t xml:space=\"preserve\">")
+                        .Append(XmlEscape(line)).Append("</w:t></w:r></w:p>");
+                }
+                body.Append("</w:tc>");
+            }
+            body.Append("</w:tr>");
+        }
+        body.Append("</w:tbl><w:p/>");
+    }
+
     static string Heading(int level, int halfPoints) =>
         $"<w:style w:type=\"paragraph\" w:styleId=\"Heading{level}\"><w:name w:val=\"heading {level}\"/><w:basedOn w:val=\"Normal\"/><w:next w:val=\"Normal\"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before=\"240\" w:after=\"120\"/><w:outlineLvl w:val=\"{level - 1}\"/></w:pPr><w:rPr><w:b/><w:bCs/><w:sz w:val=\"{halfPoints}\"/><w:szCs w:val=\"{halfPoints}\"/></w:rPr></w:style>";
 
-    static string XmlEscape(string s)
+    internal static string XmlEscape(string s)
     {
         var sb = new StringBuilder(s.Length);
         foreach (var c in s)
@@ -388,6 +491,7 @@ public static partial class Documents
     }
 
     [GeneratedRegex(@"^(#{1,6})\s+(.*)$")] private static partial Regex HeadingRx();
+    [GeneratedRegex(@"^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?$")] private static partial Regex TableRuleRx();
     [GeneratedRegex(@"^[-*+]\s+(.*)$")] private static partial Regex BulletRx();
     [GeneratedRegex(@"^(\d{1,4})[.)]\s+(.*)$")] private static partial Regex NumberRx();
     [GeneratedRegex(@"(?<!\\)\[([^\]]+)\]\(([^)\s]+)(?:\s+""[^""]*"")?\)")] private static partial Regex LinkRx();

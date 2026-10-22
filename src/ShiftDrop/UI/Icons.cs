@@ -13,7 +13,7 @@ public static class Icons
     public static uint Family(Operation op)
     {
         var key = op.TargetExt ?? op.Id;
-        if (op.Group == OpGroup.Action) return 0xFF64748B; // slate
+        if (op.Group == OpGroup.Action) return 0xFF3B82F6; // the app's blue
         return Family(key, op.Id);
     }
 

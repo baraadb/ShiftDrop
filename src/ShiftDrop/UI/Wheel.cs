@@ -204,9 +204,10 @@ public sealed class Wheel : LayeredWindow, IDropHandler
             float h = waiting || i >= _hot.Length ? 0 : _hot[i];
             var op = waiting ? null : _items[i];
             uint family = op == null ? th.Accent : Icons.Family(op);
-            uint fill = waiting ? (Dark ? 0x22FFFFFFu : 0x0F0B1220u) : Mix(petal, family, h);
+            // petals stay opaque (a see-through fill would show the rounded outline twice); they grow in instead
+            uint fill = waiting ? (Dark ? 0xFF262E3Cu : 0xFFE6EBF2u) : Mix(petal, family, h);
             float outer = (InnerR + (OuterR - InnerR) * p + 6 * h) * s;
-            c.RingSlice(cx, cy, outer, InnerR * s, mid - step / 2 + gapDeg / 2, mid + step / 2 - gapDeg / 2, Corner * s, Fade(fill, p));
+            c.RingSlice(cx, cy, outer, InnerR * s, mid - step / 2 + gapDeg / 2, mid + step / 2 - gapDeg / 2, Corner * s, fill);
             if (op == null) continue;
 
             float rad = mid * MathF.PI / 180;
@@ -270,9 +271,10 @@ public sealed class Wheel : LayeredWindow, IDropHandler
         if (_files.Count > 1)
         {
             var more = $"+{_files.Count - 1}";
-            float bw = Math.Max(20 * s, c.MeasureWidth(more, 10.5f * s, true) + 10 * s);
-            c.RoundRect(cx + ts / 2 - bw + 6 * s, cy - 48 * s, bw, 18 * s, 9 * s, th.Accent);
-            c.Text(more, cx + ts / 2 - bw + 6 * s, cy - 48 * s, bw, 18 * s, 10.5f * s, 0xFFFFFFFF, bold: true, rtl: false);
+            float bw = Math.Max(20 * s, c.MeasureWidth(more, 10.5f * s, true) + 10 * s), bh = 18 * s;
+            float bx = cx + ts / 2 - bw / 2 + 2 * s, by = cy - 44 * s - bh / 2 + 2 * s;
+            c.RoundRect(bx, by, bw, bh, bh / 2, th.Accent, Dark ? 0xFF121721u : 0xFFFFFFFFu, 2 * s);
+            c.Text(more, bx, by, bw, bh, 10.5f * s, 0xFFFFFFFF, bold: true, rtl: false);
         }
         string name = n == 0 ? L.T("Nothing here", "لا خيارات")
             : _files.Count == 1 ? Path.GetFileName(_files[0].TrimEnd('\\', '/'))

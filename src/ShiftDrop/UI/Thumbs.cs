@@ -9,7 +9,7 @@ namespace ShiftDrop.UI;
 /// </summary>
 public static unsafe partial class Thumbs
 {
-    static readonly Dictionary<string, IntPtr> Cache = new(StringComparer.OrdinalIgnoreCase);
+    static readonly Dictionary<string, (IntPtr Bmp, IntPtr Mem)> Cache = new(StringComparer.OrdinalIgnoreCase);
     static readonly Queue<string> Order = new();
     const int Keep = 12;
 
@@ -18,7 +18,7 @@ public static unsafe partial class Thumbs
     {
         var key = $"{path}|{size}";
         lock (Cache)
-            if (Cache.TryGetValue(key, out var bmp)) return bmp;
+            if (Cache.TryGetValue(key, out var hit)) return hit.Bmp;
         var t = new Thread(() =>
         {
             var bmp = Load(path, size);
@@ -26,13 +26,13 @@ public static unsafe partial class Thumbs
             {
                 lock (Cache)
                 {
-                    if (Cache.ContainsKey(key)) { if (bmp != IntPtr.Zero) Gdip.GdipDisposeImage(bmp); return; }
+                    if (Cache.ContainsKey(key)) { Free(bmp); return; }
                     Cache[key] = bmp;
                     Order.Enqueue(key);
                     while (Order.Count > Keep && Order.TryDequeue(out var old))
-                        if (Cache.Remove(old, out var o) && o != IntPtr.Zero) Gdip.GdipDisposeImage(o);
+                        if (Cache.Remove(old, out var o)) Free(o);
                 }
-                if (bmp != IntPtr.Zero) ready();
+                if (bmp.Bmp != IntPtr.Zero) ready();
             });
         }) { IsBackground = true };
         t.SetApartmentState(ApartmentState.STA);
@@ -47,20 +47,26 @@ public static unsafe partial class Thumbs
         lock (Cache) Cache[$"{path}|{size}"] = bmp;
     }
 
-    static IntPtr Load(string path, int size)
+    static void Free((IntPtr Bmp, IntPtr Mem) t)
+    {
+        if (t.Bmp != IntPtr.Zero) Gdip.GdipDisposeImage(t.Bmp);
+        if (t.Mem != IntPtr.Zero) Marshal.FreeHGlobal(t.Mem);
+    }
+
+    static (IntPtr Bmp, IntPtr Mem) Load(string path, int size)
     {
         IntPtr factory = IntPtr.Zero, hbm = IntPtr.Zero;
         try
         {
             CoInitializeEx(IntPtr.Zero, 2 /*COINIT_APARTMENTTHREADED*/);
             var iid = new Guid("bcc18b79-ba16-442f-80c4-8a59c30c463b"); // IShellItemImageFactory
-            if (SHCreateItemFromParsingName(path, IntPtr.Zero, in iid, out factory) != 0 || factory == IntPtr.Zero) return IntPtr.Zero;
+            if (SHCreateItemFromParsingName(path, IntPtr.Zero, in iid, out factory) != 0 || factory == IntPtr.Zero) return default;
             var vtbl = *(IntPtr**)factory;
             var getImage = (delegate* unmanaged[Stdcall]<IntPtr, SIZE, int, IntPtr*, int>)vtbl[3];
-            if (getImage(factory, new SIZE(size, size), 0x1 /*BIGGERSIZEOK*/, &hbm) != 0 || hbm == IntPtr.Zero) return IntPtr.Zero;
+            if (getImage(factory, new SIZE(size, size), 0x1 /*BIGGERSIZEOK*/, &hbm) != 0 || hbm == IntPtr.Zero) return default;
             return ToGdip(hbm);
         }
-        catch (Exception e) { Log.Write("thumbnail: " + e.Message); return IntPtr.Zero; }
+        catch (Exception e) { Log.Write("thumbnail: " + e.Message); return default; }
         finally
         {
             if (hbm != IntPtr.Zero) W.DeleteObject(hbm);
@@ -69,30 +75,29 @@ public static unsafe partial class Thumbs
         }
     }
 
-    /// <summary>Copies a 32-bit HBITMAP (premultiplied alpha, or none) into a GDI+ PARGB bitmap.</summary>
-    static IntPtr ToGdip(IntPtr hbm)
+    /// <summary>Copies a 32-bit HBITMAP (premultiplied alpha, or none) into a GDI+ PARGB bitmap that owns its own memory.</summary>
+    static (IntPtr Bmp, IntPtr Mem) ToGdip(IntPtr hbm)
     {
         BITMAP info;
-        if (GetObjectW(hbm, sizeof(BITMAP), &info) == 0 || info.Width <= 0) return IntPtr.Zero;
+        if (GetObjectW(hbm, sizeof(BITMAP), &info) == 0 || info.Width <= 0) return default;
         int w = info.Width, h = Math.Abs(info.Height);
         var bmi = new BITMAPINFOHEADER { Size = 40, Width = w, Height = -h, Planes = 1, BitCount = 32 };
         var pixels = new byte[w * h * 4];
         var dc = W.GetDC(IntPtr.Zero);
-        try { fixed (byte* p = pixels) if (GetDIBits(dc, hbm, 0, (uint)h, p, ref bmi, 0) == 0) return IntPtr.Zero; }
+        try { fixed (byte* p = pixels) if (GetDIBits(dc, hbm, 0, (uint)h, p, ref bmi, 0) == 0) return default; }
         finally { W.ReleaseDC(IntPtr.Zero, dc); }
         bool anyAlpha = false;
         for (int i = 3; i < pixels.Length; i += 4) if (pixels[i] != 0) { anyAlpha = true; break; }
         if (!anyAlpha) for (int i = 3; i < pixels.Length; i += 4) pixels[i] = 255;
-        // GDI+ keeps using the buffer, so give it its own memory and make a private copy
+        // GDI+ reads the pixels from this memory for as long as the bitmap lives
         var mem = Marshal.AllocHGlobal(pixels.Length);
-        try
+        Marshal.Copy(pixels, 0, mem, pixels.Length);
+        if (Gdip.GdipCreateBitmapFromScan0(w, h, w * 4, Gdip.PixelFormat32bppPARGB, mem, out var bmp) != 0)
         {
-            Marshal.Copy(pixels, 0, mem, pixels.Length);
-            if (Gdip.GdipCreateBitmapFromScan0(w, h, w * 4, Gdip.PixelFormat32bppPARGB, mem, out var wrap) != 0) return IntPtr.Zero;
-            try { return GdipCloneImage(wrap, out var copy) == 0 ? copy : IntPtr.Zero; }
-            finally { Gdip.GdipDisposeImage(wrap); }
+            Marshal.FreeHGlobal(mem);
+            return default;
         }
-        finally { Marshal.FreeHGlobal(mem); }
+        return (bmp, mem);
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -104,5 +109,4 @@ public static unsafe partial class Thumbs
     private static partial int SHCreateItemFromParsingName(string path, IntPtr bindCtx, in Guid iid, out IntPtr item);
     [LibraryImport("gdi32.dll")] private static partial int GetObjectW(IntPtr obj, int size, void* buffer);
     [LibraryImport("gdi32.dll")] private static partial int GetDIBits(IntPtr dc, IntPtr bmp, uint start, uint lines, void* bits, ref BITMAPINFOHEADER info, uint usage);
-    [LibraryImport("gdiplus.dll")] private static partial int GdipCloneImage(IntPtr image, out IntPtr clone);
 }

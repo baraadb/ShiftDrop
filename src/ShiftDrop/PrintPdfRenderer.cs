@@ -8,7 +8,7 @@ namespace ShiftDrop;
 /// Writes documents to PDF by printing to "Microsoft Print to PDF" (built into Windows 10 and 11).
 /// Windows shapes Arabic and lays out right-to-left text itself, and the PDF keeps real, selectable text.
 /// </summary>
-public sealed class PrintPdfRenderer : IDocRenderer
+public sealed partial class PrintPdfRenderer : IDocRenderer
 {
     public const string Printer = "Microsoft Print to PDF";
     static readonly object Gate = new(); // one print job at a time
@@ -71,6 +71,13 @@ public sealed class PrintPdfRenderer : IDocRenderer
                 {
                     ct.ThrowIfCancellationRequested();
                     if (b.Kind == BlockKind.PageBreak) { if (pageHasContent) NewPage(); continue; }
+                    if (b.Kind == BlockKind.Table)
+                    {
+                        if (pageHasContent) y += dpi / 12;
+                        DrawTable(b, ref y, ref pageHasContent);
+                        y += dpi / 10;
+                        continue;
+                    }
                     var (font, before, after) = b.Kind switch
                     {
                         BlockKind.Heading1 => (h1, dpi / 6, dpi / 12),
@@ -132,6 +139,103 @@ public sealed class PrintPdfRenderer : IDocRenderer
                 W.EndPage(dc);
                 W.EndDoc(dc);
                 started = false;
+
+                // ---- tables: measured columns, wrapped cells, a header row repeated on every page ----
+                void DrawTable(Block t, ref int ty, ref bool hasContent)
+                {
+                    var rows = t.Rows ?? [];
+                    if (rows.Count == 0) return;
+                    int cols = rows.Max(r => r.Length);
+                    float pt = cols > 14 ? 7 : cols > 10 ? 8 : cols > 6 ? 9 : 10;
+                    var cellFont = Font(pt, false);
+                    var headFont = Font(pt, true);
+                    int pad = Math.Max(2, dpi / 24), avail = right - left;
+                    bool rtlTable = t.Rtl;
+
+                    // natural widths from the text (first 300 rows), then fit the page
+                    var natural = new double[cols];
+                    W.SelectObject(dc, headFont);
+                    for (int r = 0; r < Math.Min(rows.Count, 300); r++)
+                    {
+                        if (r == 1) W.SelectObject(dc, cellFont);
+                        for (int ci = 0; ci < rows[r].Length; ci++)
+                            foreach (var line in rows[r][ci].Split('\n'))
+                                natural[ci] = Math.Max(natural[ci], TextWidth(dc, line) + pad * 2 + 1);
+                    }
+                    for (int ci = 0; ci < cols; ci++) natural[ci] = Math.Max(natural[ci], pad * 2 + dpi / 4);
+                    double total = natural.Sum();
+                    var widths = natural.Select(w => total > avail ? w * avail / total : w).Select(w => (int)Math.Floor(w)).ToArray();
+                    int tableW = widths.Sum();
+                    var xs = new int[cols + 1];
+                    if (rtlTable) { xs[0] = right; for (int ci = 0; ci < cols; ci++) xs[ci + 1] = xs[ci] - widths[ci]; }
+                    else { xs[0] = left; for (int ci = 0; ci < cols; ci++) xs[ci + 1] = xs[ci] + widths[ci]; }
+
+                    var gridPen = CreatePen(0, Math.Max(1, dpi / 150), 0x00C8C8C8);
+                    var headBrush = CreateSolidBrush(0x00F2F2F2);
+                    try
+                    {
+                        int RowHeight(string[] row, IntPtr font)
+                        {
+                            W.SelectObject(dc, font);
+                            int h = 0;
+                            for (int ci = 0; ci < cols; ci++)
+                            {
+                                var text = ci < row.Length ? row[ci] : "";
+                                if (text.Length == 0) continue;
+                                var rect = new RECT { Left = 0, Right = widths[ci] - pad * 2, Top = 0, Bottom = 0 };
+                                h = Math.Max(h, Measure(dc, text, rect, CellFlags(text)));
+                            }
+                            return Math.Max(h, (int)(pt * dpi / 72 * 1.25)) + pad * 2;
+                        }
+
+                        void DrawRow(string[] row, int top, int h, bool header)
+                        {
+                            int l = Math.Min(xs[0], xs[cols]), r = Math.Max(xs[0], xs[cols]);
+                            if (header)
+                            {
+                                var bg = new RECT { Left = l, Right = r, Top = top, Bottom = top + h };
+                                FillRect(dc, ref bg, headBrush);
+                            }
+                            W.SelectObject(dc, header ? headFont : cellFont);
+                            for (int ci = 0; ci < cols; ci++)
+                            {
+                                var text = ci < row.Length ? row[ci] : "";
+                                if (text.Length == 0) continue;
+                                int cl = Math.Min(xs[ci], xs[ci + 1]), cr = Math.Max(xs[ci], xs[ci + 1]);
+                                var rect = new RECT { Left = cl + pad, Right = cr - pad, Top = top + pad, Bottom = top + h - pad };
+                                uint f = CellFlags(text);
+                                if (!header && Sheets.TryNumber(text, out _)) f = (f & ~(DT_LEFT | DT_RIGHT)) | (rtlTable ? DT_LEFT : DT_RIGHT);
+                                W.DrawTextW(dc, text, text.Length, ref rect, f);
+                            }
+                            var old = W.SelectObject(dc, gridPen);
+                            MoveToEx(dc, l, top, IntPtr.Zero); LineTo(dc, r, top);
+                            MoveToEx(dc, l, top + h, IntPtr.Zero); LineTo(dc, r, top + h);
+                            for (int ci = 0; ci <= cols; ci++) { MoveToEx(dc, xs[ci], top, IntPtr.Zero); LineTo(dc, xs[ci], top + h); }
+                            W.SelectObject(dc, old);
+                        }
+
+                        int headH = RowHeight(rows[0], headFont);
+                        if (ty + headH * 2 > bottom && hasContent) { NewPage(); ty = y; }
+                        DrawRow(rows[0], ty, headH, true);
+                        ty += headH;
+                        hasContent = true;
+                        for (int r = 1; r < rows.Count; r++)
+                        {
+                            ct.ThrowIfCancellationRequested();
+                            int h = RowHeight(rows[r], cellFont);
+                            if (ty + h > bottom)
+                            {
+                                NewPage(); ty = y;
+                                DrawRow(rows[0], ty, headH, true);
+                                ty += headH;
+                            }
+                            DrawRow(rows[r], ty, Math.Min(h, bottom - ty), false);
+                            ty += h;
+                            hasContent = true;
+                        }
+                    }
+                    finally { W.DeleteObject(gridPen); W.DeleteObject(headBrush); }
+                }
             }
             finally
             {
@@ -148,6 +252,23 @@ public sealed class PrintPdfRenderer : IDocRenderer
             if (!File.Exists(outputPath)) throw new EngineException(L.T("The PDF was not created", "لم يُنشأ ملف PDF"));
         }
     }
+
+    static uint CellFlags(string text) =>
+        DT_WORDBREAK | DT_NOPREFIX | DT_EDITCONTROL | (Documents.IsRtl(text) ? DT_RIGHT | DT_RTLREADING : DT_LEFT);
+
+    static int TextWidth(IntPtr dc, string text)
+    {
+        if (text.Length == 0) return 0;
+        var rect = new RECT { Left = 0, Right = 100000, Top = 0, Bottom = 0 };
+        W.DrawTextW(dc, text, text.Length, ref rect, 0x20 /*SINGLELINE*/ | DT_NOPREFIX | DT_EXPANDTABS | DT_CALCRECT);
+        return rect.Right - rect.Left;
+    }
+
+    [System.Runtime.InteropServices.LibraryImport("gdi32.dll")] private static partial IntPtr CreatePen(int style, int width, uint color);
+    [System.Runtime.InteropServices.LibraryImport("gdi32.dll")] private static partial IntPtr CreateSolidBrush(uint color);
+    [System.Runtime.InteropServices.LibraryImport("gdi32.dll")] private static partial int MoveToEx(IntPtr dc, int x, int y, IntPtr old);
+    [System.Runtime.InteropServices.LibraryImport("gdi32.dll")] private static partial int LineTo(IntPtr dc, int x, int y);
+    [System.Runtime.InteropServices.LibraryImport("user32.dll")] private static partial int FillRect(IntPtr dc, ref RECT rect, IntPtr brush);
 
     static int Measure(IntPtr dc, string text, RECT rect, uint flags)
     {

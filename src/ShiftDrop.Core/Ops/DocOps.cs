@@ -97,6 +97,9 @@ public static partial class DocOps
     {
         FileKind.Markdown => Documents.FromMarkdown(Documents.ReadText(path)),
         FileKind.Docx => Documents.FromDocx(path),
+        FileKind.Rtf => Documents.FromRtf(path),
+        FileKind.Html => Documents.FromHtml(Documents.ReadText(path)),
+        FileKind.Epub => Documents.FromEpub(path),
         _ => Documents.FromText(Documents.ReadText(path)),
     };
 
@@ -115,6 +118,7 @@ public static partial class DocOps
             case "md": Documents.WriteText(output, Documents.ToMarkdown(blocks)); break;
             case "html": Documents.WriteText(output, Documents.ToHtml(blocks, c.Base)); break;
             case "docx": Documents.ToDocx(blocks, output); break;
+            case "epub": Documents.ToEpub(blocks, c.Base, output); break;
             case "pdf":
                 var r = c.Services.DocRenderer ?? throw new EngineException(L.T("PDF export is not available here", "التصدير إلى PDF غير متاح هنا"));
                 r.RenderPdf(blocks, c.Base, output, c.Token);

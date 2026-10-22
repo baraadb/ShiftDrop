@@ -15,6 +15,10 @@ public enum FileKind
     Docx,
     Subtitle,
     Archive,
+    Rtf,
+    Html,
+    Epub,
+    Sheet,
 }
 
 public static class FileKinds
@@ -40,6 +44,8 @@ public static class FileKinds
         ["txt"] = FileKind.Text,
         ["md"] = FileKind.Markdown, ["markdown"] = FileKind.Markdown,
         ["docx"] = FileKind.Docx,
+        ["rtf"] = FileKind.Rtf, ["html"] = FileKind.Html, ["htm"] = FileKind.Html, ["epub"] = FileKind.Epub,
+        ["xlsx"] = FileKind.Sheet, ["xlsm"] = FileKind.Sheet, ["ods"] = FileKind.Sheet, ["csv"] = FileKind.Sheet, ["tsv"] = FileKind.Sheet,
         ["srt"] = FileKind.Subtitle, ["vtt"] = FileKind.Subtitle,
         ["zip"] = FileKind.Archive, ["tar"] = FileKind.Archive, ["tgz"] = FileKind.Archive,
         ["gz"] = FileKind.Archive, ["7z"] = FileKind.Archive, ["rar"] = FileKind.Archive,

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using ShiftDrop.Core;
 using ShiftDrop.Native;
+using ShiftDrop.UI;
 
 namespace ShiftDrop;
 
@@ -26,6 +27,7 @@ public static unsafe class AppActions
         });
         Catalog.Add(Action("act.copyto", "Copy to…", "نسخ إلى…", files => Transfer(app, files, move: false)));
         Catalog.Add(Action("act.moveto", "Move to…", "نقل إلى…", files => Transfer(app, files, move: true)));
+        Catalog.Add(Action("act.float", "Float", "إبقاء عائمًا", files => FloatWindow.Show(files)));
         Catalog.Add(Action("act.properties", "Properties", "الخصائص", files => Properties(files[0])));
     }
 
