@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.0
+
+- **Trim on a timeline.** Trimming audio or video now opens an editor: the waveform (and, for videos, a strip of frames and a big picture of the frame at the end you're moving). Drag the two ends or the whole selection, play the selected part, or let ShiftDrop cut the quiet ends for you. Arrow keys nudge an end, Tab switches ends, Space plays.
+- **Crop videos.** A new video tool: drag the frame or its corners, pick a ratio (Free, 1:1, 4:3, 3:2, 16:9, 9:16), and slide through the video to see any moment.
+- **Picture crop** uses the same new editor.
+- **Audio channels.** Mono or stereo, with a level for the left and right sides (0–200%), shown on each side's waveform, and a preview of the result. It replaces the simple "Mono" tool.
+- All editors follow the app's light or dark look and work in Arabic.
+
+**محرر قص على شريط زمني للصوت والفيديو، قص إطار الفيديو، ونافذة قنوات الصوت.**
+
 ## 0.4.2
 
 - Fixed: Settings didn't open in 0.4.1 (from the tray menu or by clicking the icon).

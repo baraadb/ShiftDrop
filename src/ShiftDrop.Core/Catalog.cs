@@ -149,12 +149,6 @@ public static class Catalog
         new("length", "Length of each part (e.g. 5:00)", "طول كل جزء (مثل 5:00)", "5:00"),
     ];
 
-    static InputField[] TrimFields =>
-    [
-        new("start", "Start (e.g. 0:05)", "البداية (مثل 0:05)", "0:00"),
-        new("end", "End (empty = to the end)", "النهاية (فارغ = حتى الآخر)", ""),
-    ];
-
     static void Convert(string family, string ext, FileKind[] kinds, Func<OpContext, Task> run,
         Needs needs = Needs.FFmpeg, bool heavy = false) =>
         All.Add(new Operation
