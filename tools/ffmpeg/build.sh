@@ -132,7 +132,8 @@ fi
 if ! done_mark svtav1; then
     log SVT-AV1; fetch_commit svtav1 https://github.com/AOMediaCodec/SVT-AV1 "$SVTAV1_COMMIT"
     rm -rf "$SRC/svtav1/build"
-    "${CMAKE[@]}" -S "$SRC/svtav1" -B "$SRC/svtav1/build" -DBUILD_APPS=OFF -DBUILD_DEC=OFF -DBUILD_TESTING=OFF -DENABLE_AVX512=ON >/dev/null
+    # no link-time optimization: its code would be finished when FFmpeg links, with FFmpeg's settings
+    "${CMAKE[@]}" -S "$SRC/svtav1" -B "$SRC/svtav1/build" -DBUILD_APPS=OFF -DBUILD_DEC=OFF -DBUILD_TESTING=OFF -DENABLE_AVX512=ON -DSVT_AV1_LTO=OFF >/dev/null
     ninja -C "$SRC/svtav1/build" install >/dev/null
     mark svtav1
 fi

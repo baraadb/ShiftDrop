@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.0
+
+**A much smaller ShiftDrop, with its own FFmpeg.**
+
+- **Our own FFmpeg.** ShiftDrop now ships an FFmpeg built just for it: every format FFmpeg knows, but only the outside libraries ShiftDrop actually uses, compiled into shared DLLs so `ffmpeg.exe` and `ffprobe.exe` no longer carry a full copy each. FFmpeg went from SIZE_BEFORE to SIZE_AFTER on disk.
+- **Faster.** Measured on the same machine against the FFmpeg used before: SPEED_SUMMARY. Each new FFmpeg build is tested and timed before it is published, and a slower build never ships.
+- **SVG pictures** are drawn by resvg now (sharper text and gradients). Small icons are drawn at least 1024 pixels wide, so the result is useful.
+- **Background removal is gone for now.** Its results were not good enough; it will come back, rebuilt, in a later version. Updating removes its files (about 55 MB).
+- The FFmpeg build is open: `tools/ffmpeg/build.sh` with pinned versions, rebuilt monthly with FFmpeg's newest code once it passes the same checks.
+
 ## 0.5.1
 
 - **Play selection works**: the trim editor and the audio channels editor now play the sound. Windows was refusing the preview because its size was missing.
