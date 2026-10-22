@@ -29,9 +29,10 @@ HOST=x86_64-w64-mingw32
 if command -v "$HOST-gcc-posix" >/dev/null; then SUFFIX=-posix; else SUFFIX=; fi
 export CC="$HOST-gcc$SUFFIX" CXX="$HOST-g++$SUFFIX" AR="$HOST-ar" RANLIB="$HOST-ranlib" STRIP="$HOST-strip"
 export NM="$HOST-nm" WINDRES="$HOST-windres" LD="$HOST-ld"
+# -DNDEBUG: no debug checks in release code (LAME, for one, checks inside its hot loops otherwise).
 # -O2 is what the libraries tune for; their hot paths are hand-written assembly chosen at run time,
 # so the build runs at full speed on every CPU from the last 15 years.
-export CFLAGS="-O2 -pipe -I$PREFIX/include -D_FORTIFY_SOURCE=0 -fno-semantic-interposition"
+export CFLAGS="-O2 -pipe -I$PREFIX/include -DNDEBUG -D_FORTIFY_SOURCE=0 -fno-semantic-interposition"
 export CXXFLAGS="$CFLAGS"
 export LDFLAGS="-L$PREFIX/lib -static-libgcc -static-libstdc++"
 export PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig"
