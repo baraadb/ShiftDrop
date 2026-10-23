@@ -3,6 +3,8 @@
 param([string]$Publish)
 
 $ErrorActionPreference = 'Stop'
+# on GitHub Actions, a failure shows up as a readable annotation
+trap { if ($env:GITHUB_ACTIONS) { Write-Host "::error title=MSIX::$($_.Exception.Message -replace "`r?`n", ' ')" }; break }
 $Root = Split-Path -Parent $PSScriptRoot
 if (-not $Publish) { $Publish = Join-Path $Root 'build\publish' }
 $Exe = Join-Path $Publish 'ShiftDrop.exe'
@@ -47,6 +49,8 @@ if ($LASTEXITCODE -ne 0) { throw 'makepri new failed' }
 $dump = Join-Path $Root 'build\resources-dump.xml'
 & $makepri dump /if (Join-Path $Layout 'resources.pri') /of $dump /dt Detailed /o | Out-Null
 $xml = Get-Content $dump -Raw -Encoding UTF8
+$i = $xml.IndexOf('StoreName')
+if ($env:GITHUB_ACTIONS) { Write-Host "::notice title=resources.pri::$(if ($i -ge 0) { ($xml.Substring([Math]::Max(0, $i - 200), [Math]::Min(1500, $xml.Length - [Math]::Max(0, $i - 200)))) -replace "`r?`n", ' ' } else { 'no StoreName; ' + ($xml.Substring(0, [Math]::Min(1500, $xml.Length)) -replace "`r?`n", ' ') })" }
 foreach ($lang in 'EN-US', 'AR') {
     $m = [regex]::Match($xml, '(?s)<NamedResource name="StoreName".*?</NamedResource>')
     if (-not $m.Success -or $m.Value -notmatch "Language`"\s+value=`"$lang`"") { throw "resources.pri has no Store name for $lang" }
