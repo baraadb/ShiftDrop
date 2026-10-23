@@ -42,6 +42,12 @@ $manifest = $manifest.Replace('$IdentityName$', $store.IdentityName).Replace('$P
 $pri = Join-Path $Root 'build\priconfig.xml'
 & $makepri createconfig /cf $pri /dq en-US /pv 10.0.0 /o | Out-Host
 if ($LASTEXITCODE -ne 0) { throw 'makepri createconfig failed' }
+# one package, not a bundle: keep every language (and image size) in the main resources.pri
+# instead of splitting them into resource packs
+[xml]$cfg = Get-Content $pri -Raw
+$packaging = $cfg.SelectSingleNode('//packaging')
+if ($packaging) { [void]$packaging.ParentNode.RemoveChild($packaging) }
+$cfg.Save($pri)
 & $makepri new /pr $Layout /cf $pri /mn (Join-Path $Layout 'AppxManifest.xml') /of (Join-Path $Layout 'resources.pri') /o | Out-Host
 if ($LASTEXITCODE -ne 0) { throw 'makepri new failed' }
 
