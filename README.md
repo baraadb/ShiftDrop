@@ -49,6 +49,18 @@ It is free, open source, and everything happens **on your PC**.
   <img src="docs/media/demo-audio.gif" alt="An MP3 is dragged and converted to WAV, the WAV is trimmed on its waveform, and the result is shared from the Alt wheel" width="760">
 </p>
 
+**Video:** the formats wheel, then Ctrl for tools and trimming on the timeline.
+
+<p align="center">
+  <img src="docs/media/demo-video.gif" alt="An MP4 is dragged, the video formats wheel opens, Ctrl switches to tools, and the video is trimmed on its timeline of frames" width="760">
+</p>
+
+**Spreadsheets, without Office:** an Excel file to CSV, then to PDF.
+
+<p align="center">
+  <img src="docs/media/demo-sheet.gif" alt="An Excel file is dropped on CSV, then on PDF, and the PDF appears next to it" width="400">
+</p>
+
 <table>
   <tr>
     <td align="center"><img src="docs/media/wheel-image.png" width="260" alt="Image formats"><br><sub><b>Shift</b> · formats for a picture</sub></td>
@@ -259,6 +271,18 @@ Licence: [MIT](LICENSE).
 
 <p align="center">
   <img src="docs/media/demo-audio.gif" alt="تحويل ملف MP3 إلى WAV ثم قصه على موجة الصوت ثم مشاركته" width="760">
+</p>
+
+**الفيديو:** عجلة الصيغ، ثم Ctrl للأدوات وقص المدة على شريط الإطارات.
+
+<p align="center">
+  <img src="docs/media/demo-video.gif" alt="سحب فيديو MP4 وفتح عجلة الصيغ ثم الأدوات وقص المدة على شريط الإطارات" width="760">
+</p>
+
+**الجداول بدون Office:** ملف Excel إلى CSV، ثم إلى PDF.
+
+<p align="center">
+  <img src="docs/media/demo-sheet.gif" alt="إفلات ملف Excel على CSV ثم على PDF" width="400">
 </p>
 
 <p align="center">
