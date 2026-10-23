@@ -30,6 +30,7 @@ if (Test-Path $Layout) { Remove-Item -Recurse -Force $Layout }
 New-Item -ItemType Directory -Force -Path $Layout | Out-Null
 Copy-Item -Path (Join-Path $Publish '*') -Destination $Layout -Recurse -Force
 Copy-Item -Path (Join-Path $PSScriptRoot 'msix\Assets') -Destination (Join-Path $Layout 'Assets') -Recurse -Force
+Copy-Item -Path (Join-Path $PSScriptRoot 'msix\Strings') -Destination (Join-Path $Layout 'Strings') -Recurse -Force
 $manifest = Get-Content (Join-Path $PSScriptRoot 'msix\AppxManifest.xml') -Raw
 $manifest = $manifest.Replace('$IdentityName$', $store.IdentityName).Replace('$Publisher$', $store.Publisher).
     Replace('$PublisherDisplayName$', $store.PublisherDisplayName).Replace('$Version$', $msixVersion)
@@ -41,6 +42,18 @@ $pri = Join-Path $Root 'build\priconfig.xml'
 if ($LASTEXITCODE -ne 0) { throw 'makepri createconfig failed' }
 & $makepri new /pr $Layout /cf $pri /mn (Join-Path $Layout 'AppxManifest.xml') /of (Join-Path $Layout 'resources.pri') /o | Out-Host
 if ($LASTEXITCODE -ne 0) { throw 'makepri new failed' }
+
+# the Store name must be there in every listed language
+$dump = Join-Path $Root 'build\resources-dump.xml'
+& $makepri dump /if (Join-Path $Layout 'resources.pri') /of $dump /dt Detailed /o | Out-Null
+$xml = Get-Content $dump -Raw -Encoding UTF8
+foreach ($lang in 'EN-US', 'AR') {
+    $m = [regex]::Match($xml, '(?s)<NamedResource name="StoreName".*?</NamedResource>')
+    if (-not $m.Success -or $m.Value -notmatch "Language`"\s+value=`"$lang`"") { throw "resources.pri has no Store name for $lang" }
+}
+$names = [regex]::Matches([regex]::Match($xml, '(?s)<NamedResource name="StoreName".*?</NamedResource>').Value, '<Value>(.*?)</Value>') | ForEach-Object { $_.Groups[1].Value }
+Write-Host "Store names: $($names -join ' | ')"
+if ($env:GITHUB_ACTIONS) { Write-Host "::notice title=Store names::$($names -join ' | ')" }
 
 $out = Join-Path $Root "build\ShiftDrop-$version.msix"
 & $makeappx pack /d $Layout /p $out /o | Out-Host
