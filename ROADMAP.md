@@ -4,7 +4,7 @@ Planned work, newest requests first. Items move to CHANGELOG.md when they ship.
 
 ## Next release
 
-- Store name: **ShiftDrop - File Converter**. The MSIX `Properties/DisplayName` must match the name reserved in Partner Center (Manage app names); keep the Start menu and tray name (`VisualElements DisplayName`) as plain "ShiftDrop". Then pick the new name under Store listings > Product name.
+- Store names (reserved 2026-10-23, must be used in a submission within three months): English **ShiftDrop - File Converter**, Arabic **ShiftDrop - محول الملفات**. The MSIX needs both, as a localized `Properties/DisplayName` (resources.pri with en-US and ar strings). The MSIX `Properties/DisplayName` must match the name reserved in Partner Center (Manage app names); keep the Start menu and tray name (`VisualElements DisplayName`) as plain "ShiftDrop". Then pick the new name under Store listings > Product name.
 
 ## Later
 
