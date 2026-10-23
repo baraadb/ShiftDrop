@@ -149,6 +149,10 @@ jobs:
             ''
             "**نزّل ملف ``ShiftDrop-Setup-$v.exe``** وشغّله، ثم اسحب أي ملف في المستكشف واضغط Shift."
             ''
+            'Or get it from the Microsoft Store (signed by Microsoft, updated by the Store) · أو حمّله من متجر Microsoft:'
+            ''
+            '<a href="https://get.microsoft.com/installer/download/9PMWF3FBWX87?referrer=appbadge"><img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200" alt="Get it from Microsoft"></a> <a href="https://get.microsoft.com/installer/download/9PMWF3FBWX87?referrer=appbadge"><img src="https://get.microsoft.com/images/ar%20dark.svg" width="200" alt="حمّله من متجر Microsoft"></a>'
+            ''
             "## What's new"
             ''
             $notes
