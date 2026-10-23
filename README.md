@@ -3,6 +3,10 @@
 </p>
 
 <p align="center">
+  <a href="https://apps.microsoft.com/detail/9PMWF3FBWX87?mode=direct"><img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200" alt="Get it from Microsoft"></a>
+</p>
+
+<p align="center">
   <a href="https://github.com/baraadb/ShiftDrop/releases/latest"><img src="https://img.shields.io/github/v/release/baraadb/ShiftDrop?style=for-the-badge&color=2563eb&label=download" alt="Latest release"></a>
   <a href="https://github.com/baraadb/ShiftDrop/releases"><img src="https://img.shields.io/github/downloads/baraadb/ShiftDrop/total?style=for-the-badge&color=3b82f6" alt="Downloads"></a>
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Windows 10 and 11">
@@ -80,6 +84,12 @@ It is free, open source, and everything happens **on your PC**.
 </table>
 
 ## Download
+
+**From the Microsoft Store (easiest):** [ShiftDrop on the Microsoft Store](https://apps.microsoft.com/detail/9PMWF3FBWX87). It is signed by Microsoft, installs with one click, and the Store keeps it up to date.
+
+<p><a href="https://apps.microsoft.com/detail/9PMWF3FBWX87?mode=direct"><img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200" alt="Get it from Microsoft"></a></p>
+
+**Or with the installer from GitHub:**
 
 1. Get **`ShiftDrop-Setup-<version>.exe`** from the [latest release](https://github.com/baraadb/ShiftDrop/releases/latest).
 2. Run it. It installs for your account only: no administrator rights, nothing else to download.
@@ -290,6 +300,12 @@ Licence: [MIT](LICENSE).
 </p>
 
 ## التنزيل والتثبيت
+
+**من متجر Microsoft (الأسهل):** [ShiftDrop على متجر Microsoft](https://apps.microsoft.com/detail/9PMWF3FBWX87). موقّع من Microsoft، يُثبَّت بنقرة واحدة، والمتجر يحدّثه تلقائيًا.
+
+<p><a href="https://apps.microsoft.com/detail/9PMWF3FBWX87?mode=direct"><img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200" alt="حمّله من متجر Microsoft"></a></p>
+
+**أو بملف التثبيت من GitHub:**
 
 1. نزّل الملف **`ShiftDrop-Setup-<الإصدار>.exe`** من [آخر إصدار](https://github.com/baraadb/ShiftDrop/releases/latest).
 2. شغّله. يُثبَّت لحسابك فقط، بلا صلاحيات مدير، وبلا أي تنزيلات إضافية.
