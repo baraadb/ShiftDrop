@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://apps.microsoft.com/detail/9PMWF3FBWX87?mode=direct"><img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200" alt="Get it from Microsoft"></a>
+  <a href="https://get.microsoft.com/installer/download/9PMWF3FBWX87?referrer=appbadge"><img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200" alt="Get it from Microsoft"></a>
 </p>
 
 <p align="center">
@@ -87,7 +87,7 @@ It is free, open source, and everything happens **on your PC**.
 
 **From the Microsoft Store (easiest):** [ShiftDrop on the Microsoft Store](https://apps.microsoft.com/detail/9PMWF3FBWX87). It is signed by Microsoft, installs with one click, and the Store keeps it up to date.
 
-<p><a href="https://apps.microsoft.com/detail/9PMWF3FBWX87?mode=direct"><img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200" alt="Get it from Microsoft"></a></p>
+<p><a href="https://get.microsoft.com/installer/download/9PMWF3FBWX87?referrer=appbadge"><img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200" alt="Get it from Microsoft"></a></p>
 
 **Or with the installer from GitHub:**
 
@@ -303,7 +303,7 @@ Licence: [MIT](LICENSE).
 
 **من متجر Microsoft (الأسهل):** [ShiftDrop على متجر Microsoft](https://apps.microsoft.com/detail/9PMWF3FBWX87). موقّع من Microsoft، يُثبَّت بنقرة واحدة، والمتجر يحدّثه تلقائيًا.
 
-<p><a href="https://apps.microsoft.com/detail/9PMWF3FBWX87?mode=direct"><img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200" alt="حمّله من متجر Microsoft"></a></p>
+<p><a href="https://get.microsoft.com/installer/download/9PMWF3FBWX87?referrer=appbadge"><img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200" alt="حمّله من متجر Microsoft"></a></p>
 
 **أو بملف التثبيت من GitHub:**
 
