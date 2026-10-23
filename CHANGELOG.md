@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.1
+
+- **Microsoft Store:** the app is listed as "ShiftDrop - File Converter" (in Arabic: "ShiftDrop - محول الملفات"). On your PC it is still called ShiftDrop.
+- Release pages link to ShiftDrop on the Microsoft Store.
+
 ## 0.6.0
 
 **A much smaller ShiftDrop, with its own FFmpeg.**

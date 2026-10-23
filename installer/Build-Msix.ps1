@@ -3,6 +3,8 @@
 param([string]$Publish)
 
 $ErrorActionPreference = 'Stop'
+# on GitHub Actions, a failure shows up as a readable annotation
+trap { if ($env:GITHUB_ACTIONS) { Write-Host "::error title=MSIX::$($_.Exception.Message -replace "`r?`n", ' ')" }; break }
 $Root = Split-Path -Parent $PSScriptRoot
 if (-not $Publish) { $Publish = Join-Path $Root 'build\publish' }
 $Exe = Join-Path $Publish 'ShiftDrop.exe'
@@ -30,6 +32,7 @@ if (Test-Path $Layout) { Remove-Item -Recurse -Force $Layout }
 New-Item -ItemType Directory -Force -Path $Layout | Out-Null
 Copy-Item -Path (Join-Path $Publish '*') -Destination $Layout -Recurse -Force
 Copy-Item -Path (Join-Path $PSScriptRoot 'msix\Assets') -Destination (Join-Path $Layout 'Assets') -Recurse -Force
+Copy-Item -Path (Join-Path $PSScriptRoot 'msix\Strings') -Destination (Join-Path $Layout 'Strings') -Recurse -Force
 $manifest = Get-Content (Join-Path $PSScriptRoot 'msix\AppxManifest.xml') -Raw
 $manifest = $manifest.Replace('$IdentityName$', $store.IdentityName).Replace('$Publisher$', $store.Publisher).
     Replace('$PublisherDisplayName$', $store.PublisherDisplayName).Replace('$Version$', $msixVersion)
@@ -39,8 +42,28 @@ $manifest = $manifest.Replace('$IdentityName$', $store.IdentityName).Replace('$P
 $pri = Join-Path $Root 'build\priconfig.xml'
 & $makepri createconfig /cf $pri /dq en-US /pv 10.0.0 /o | Out-Host
 if ($LASTEXITCODE -ne 0) { throw 'makepri createconfig failed' }
+# one package, not a bundle: keep every language (and image size) in the main resources.pri
+# instead of splitting them into resource packs
+[xml]$cfg = Get-Content $pri -Raw
+$packaging = $cfg.SelectSingleNode('//packaging')
+if ($packaging) { [void]$packaging.ParentNode.RemoveChild($packaging) }
+$cfg.Save($pri)
 & $makepri new /pr $Layout /cf $pri /mn (Join-Path $Layout 'AppxManifest.xml') /of (Join-Path $Layout 'resources.pri') /o | Out-Host
 if ($LASTEXITCODE -ne 0) { throw 'makepri new failed' }
+
+# the Store name must be there in every listed language
+$dump = Join-Path $Root 'build\resources-dump.xml'
+& $makepri dump /if (Join-Path $Layout 'resources.pri') /of $dump /dt Detailed /o | Out-Null
+$xml = Get-Content $dump -Raw -Encoding UTF8
+$i = $xml.IndexOf('StoreName')
+if ($env:GITHUB_ACTIONS) { Write-Host "::notice title=resources.pri::$(if ($i -ge 0) { ($xml.Substring([Math]::Max(0, $i - 200), [Math]::Min(1500, $xml.Length - [Math]::Max(0, $i - 200)))) -replace "`r?`n", ' ' } else { 'no StoreName; ' + ($xml.Substring(0, [Math]::Min(1500, $xml.Length)) -replace "`r?`n", ' ') })" }
+foreach ($lang in 'EN-US', 'AR') {
+    $m = [regex]::Match($xml, '(?s)<NamedResource name="StoreName".*?</NamedResource>')
+    if (-not $m.Success -or $m.Value -notmatch "Language`"\s+value=`"$lang`"") { throw "resources.pri has no Store name for $lang" }
+}
+$names = [regex]::Matches([regex]::Match($xml, '(?s)<NamedResource name="StoreName".*?</NamedResource>').Value, '<Value>(.*?)</Value>') | ForEach-Object { $_.Groups[1].Value }
+Write-Host "Store names: $($names -join ' | ')"
+if ($env:GITHUB_ACTIONS) { Write-Host "::notice title=Store names::$($names -join ' | ')" }
 
 $out = Join-Path $Root "build\ShiftDrop-$version.msix"
 & $makeappx pack /d $Layout /p $out /o | Out-Host

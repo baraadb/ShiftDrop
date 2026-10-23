@@ -10,7 +10,8 @@
   <Identity Name="$IdentityName$" Publisher="$Publisher$" Version="$Version$" ProcessorArchitecture="x64" />
 
   <Properties>
-    <DisplayName>ShiftDrop</DisplayName>
+    <!-- the Store name, per language (Strings\<language>\Resources.resw); Start menu and tray stay "ShiftDrop" -->
+    <DisplayName>ms-resource:StoreName</DisplayName>
     <PublisherDisplayName>$PublisherDisplayName$</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
     <Description>Drag a file, press Shift, drop it on a format. A free, offline file converter.</Description>
