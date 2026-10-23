@@ -20,7 +20,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/media/demo.gif" alt="ShiftDrop in action: a file is dragged, Shift opens the wheel, the file is dropped on a format" width="720">
+  <img src="docs/media/demo-images.gif" alt="ShiftDrop in action: a picture is dragged, Shift opens the wheel of formats, Ctrl switches to tools, and the crop editor opens" width="760">
 </p>
 
 **ShiftDrop turns every drag into a conversion.** Drag a file in File Explorer, press **Shift**, and a wheel of formats opens under your pointer. Drop the file on a format and a converted copy appears next to the original. No windows to open, no upload, no waiting for a website.
@@ -43,6 +43,12 @@ It is free, open source, and everything happens **on your PC**.
 
 ## Screenshots
 
+**Audio:** convert to WAV, trim it on the waveform, then share the result.
+
+<p align="center">
+  <img src="docs/media/demo-audio.gif" alt="An MP3 is dragged and converted to WAV, the WAV is trimmed on its waveform, and the result is shared from the Alt wheel" width="760">
+</p>
+
 <table>
   <tr>
     <td align="center"><img src="docs/media/wheel-image.png" width="260" alt="Image formats"><br><sub><b>Shift</b> · formats for a picture</sub></td>
@@ -53,6 +59,11 @@ It is free, open source, and everything happens **on your PC**.
     <td align="center"><img src="docs/media/wheel-video.png" width="260" alt="Video formats"><br><sub>A video, hovering WMV</sub></td>
     <td align="center"><img src="docs/media/wheel-arabic.png" width="260" alt="PDF tools in Arabic"><br><sub>PDF tools, in Arabic</sub></td>
     <td align="center"><img src="docs/media/float.png" width="260" alt="Float card"><br><sub><b>Float</b> · files on top, ready to drag</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/media/editor-trim-video.png" width="260" alt="Trim video"><br><sub><b>Trim</b> · frames and waveform</sub></td>
+    <td align="center"><img src="docs/media/editor-crop-video.png" width="260" alt="Crop video"><br><sub><b>Crop video</b> · any ratio, any moment</sub></td>
+    <td align="center"><img src="docs/media/editor-channels.png" width="260" alt="Audio channels"><br><sub><b>Channels</b> · mono or stereo, with levels</sub></td>
   </tr>
 </table>
 
@@ -235,6 +246,24 @@ Licence: [MIT](LICENSE).
 - **آمن:** الملف الأصلي لا يُمس، ولا يُكتب فوق أي ملف، والعملية الملغاة أو الفاشلة لا تترك أي بقايا.
 - **خصوصية كاملة:** بلا حساب، وبلا تتبّع، وبلا رفع. يعمل بدون إنترنت.
 - **خفيف وسريع:** مكتوب بواجهات Windows الأصلية، بالعربية والإنجليزية، وبمظهر فاتح وداكن.
+
+## شاهد البرنامج
+
+**الصور:** سحب الصورة مع Shift لعجلة الصيغ، ثم Ctrl للأدوات وفتح محرر القص.
+
+<p align="center">
+  <img src="docs/media/demo-images.gif" alt="سحب صورة مع Shift لعجلة الصيغ ثم Ctrl للأدوات وفتح محرر القص" width="760">
+</p>
+
+**الصوت:** تحويل إلى WAV، ثم قص المدة على موجة الصوت، ثم مشاركة النتيجة.
+
+<p align="center">
+  <img src="docs/media/demo-audio.gif" alt="تحويل ملف MP3 إلى WAV ثم قصه على موجة الصوت ثم مشاركته" width="760">
+</p>
+
+<p align="center">
+  <img src="docs/media/editor-trim-audio-arabic.png" width="560" alt="محرر قص الصوت بالعربية">
+</p>
 
 ## التنزيل والتثبيت
 
