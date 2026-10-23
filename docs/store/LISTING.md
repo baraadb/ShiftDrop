@@ -27,10 +27,10 @@ Free. No in-app purchases.
 
 ## English (en-us)
 
-**Product name:** ShiftDrop
+**Product name:** ShiftDrop - File Converter *(from 0.6.1; reserved)*
 
-**Short description:**
-Drag a file, press Shift, drop it on a format. Convert images, video, audio, PDF and documents offline.
+**Short description** (the text under the app name):
+ShiftDrop converts files where you already are, no need for an extra window. Hold Shift while dragging a file in File Explorer and a wheel of output formats appears around your pointer. Drop the file on the format you want, and the converted copy is saved right beside the original.
 
 **Description:**
 ShiftDrop turns every drag into a conversion.
@@ -73,10 +73,10 @@ English and Arabic, light and dark
 
 ## العربية (ar)
 
-**اسم المنتج:** ShiftDrop
+**اسم المنتج:** ShiftDrop - محول الملفات *(من 0.6.1؛ محجوز)*
 
-**وصف قصير:**
-اسحب ملفًا، اضغط Shift، وأفلته على الصيغة. حوّل الصور والفيديو والصوت وPDF والمستندات بدون إنترنت.
+**وصف قصير** (النص تحت اسم البرنامج):
+يحوّل ShiftDrop ملفاتك وأنت في مكانك، بلا أي نافذة إضافية. اضغط Shift وأنت تسحب ملفًا في مستكشف الملفات، فتظهر حول المؤشر عجلة فيها الصيغ. أفلت الملف على الصيغة التي تريدها، فتُحفظ النسخة المحوّلة بجانب الأصل مباشرة.
 
 **الوصف:**
 ShiftDrop يحوّل كل سحبة إلى تحويل.
